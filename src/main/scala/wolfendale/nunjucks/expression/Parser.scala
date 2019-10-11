@@ -82,7 +82,9 @@ object Parser {
       def gte = binop(">=", addition, AST.GTE)
       def lt  = binop("<", addition, AST.LT)
       def lte = binop("<=", addition, AST.LTE)
-      recurBinop(addition, P(gt | gte | lt | lte))
+      def in = binop("in", addition, AST.In)
+      def notIn = binop("not in", addition, AST.NotIn)
+      recurBinop(addition, P(gt | gte | lt | lte | notIn | in))
     }
 
     def equality = {
