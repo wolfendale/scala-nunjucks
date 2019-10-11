@@ -76,35 +76,43 @@ object TemplateNode {
 
   final case class For(identifiers: Seq[expression.syntax.AST.Identifier],
                        expr: expression.syntax.AST.Expr,
-                       partial: Partial)
+                       partial: Partial,
+                       elseCase: Option[Partial])
       extends Tag {
 
     override def eval: State[Context, String] = State.inspect[Context, String] { context =>
       val value = expr.eval(context).toArr.values
 
-      value.zipWithIndex
-        .map {
-          case (subValues, i) =>
-            val loop = Value.Obj(
-              "index"     -> Value.Number(i + 1),
-              "index0"    -> Value.Number(i),
-              "revindex"  -> Value.Number(value.length - i),
-              "revindex0" -> Value.Number(value.length - i - 1),
-              "first"     -> (if (i == 0) Value.True else Value.False),
-              "last" -> (if (i == value.length - 1) Value.True
-                         else Value.False),
-              "length" -> Value.Number(value.length)
-            )
+      if (value.nonEmpty) {
+        value.zipWithIndex
+          .map {
+            case (subValues, i) =>
+              val loop = Value.Obj(
+                "index" -> Value.Number(i + 1),
+                "index0" -> Value.Number(i),
+                "revindex" -> Value.Number(value.length - i),
+                "revindex0" -> Value.Number(value.length - i - 1),
+                "first" -> (if (i == 0) Value.True else Value.False),
+                "last" -> (if (i == value.length - 1) Value.True
+                else Value.False),
+                "length" -> Value.Number(value.length)
+              )
 
-            val parameters =
-              identifiers.map(_.value).zip(subValues.destructure)
-            val scope = context.scope
-              .set("loop", loop)
-              .set(parameters: _*)
+              val parameters =
+                identifiers.map(_.value).zip(subValues.destructure)
+              val scope = context.scope
+                .set("loop", loop)
+                .set(parameters: _*)
 
-            partial.eval.runA(context.setScope(scope))
+              partial.eval.runA(context.setScope(scope))
+          }
+          .foldLeft("")(_ + _.value)
+      } else {
+        elseCase match {
+          case Some(p) => p.eval.runA(context).value
+          case None => ""
         }
-        .foldLeft("")(_ + _.value)
+      }
     }
   }
 

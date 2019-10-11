@@ -75,8 +75,13 @@ object TemplateParser {
         P(openTag ~ "endfor" ~ closeTag)
       }
 
+      def `else` = {
+        import SingleLineWhitespace._
+        P(openTag ~ "else" ~ closeTag)
+      }
+
       import NunjucksWhitespace._
-      P(open ~ partial ~ close).map(TemplateNode.For.tupled)
+      P(open ~ partial ~ (`else` ~ partial).? ~ close).map(TemplateNode.For.tupled)
     }
 
     def setTag: P[TemplateNode.Tag] = {

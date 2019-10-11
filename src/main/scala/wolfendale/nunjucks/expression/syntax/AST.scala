@@ -208,10 +208,10 @@ object AST {
     }
   }
 
-  final case class If(condition: Expr, body: Expr, other: Option[Expr]) extends Expr {
+  final case class If(body: Expr, condition: Expr, other: Option[Expr]) extends Expr {
 
     override def eval(context: Context): Value =
-      if (condition.eval(context) == Value.True) {
+      if (condition.eval(context) `==` Value.True) {
         body.eval(context)
       } else {
         other.map(_.eval(context)).getOrElse(Value.Undefined)
