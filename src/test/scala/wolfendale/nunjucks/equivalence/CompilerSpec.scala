@@ -1027,7 +1027,7 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
 
   "should include 130 templates without call stack size exceed" in {
 
-    environment.render("{% include \"includeMany.njk\" %}") mustEqual ("FooInclude \\n" * 131)
+    environment.render("{% include \"includeMany.njk\" %}") mustEqual ("FooInclude \n" * 131)
   }
 
   "should include templates with context" in {
