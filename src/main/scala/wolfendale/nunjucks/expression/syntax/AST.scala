@@ -217,4 +217,36 @@ object AST {
         other.map(_.eval(context)).getOrElse(Value.Undefined)
       }
   }
+
+  final case class In(item: Expr, container: Expr) extends Expr {
+
+    override def eval(context: Context): Value = {
+      container.eval(context) match {
+        case a: Value.Arr =>
+          if (a.values.exists(i => (i `===` item.eval(context)) == Value.True)) Value.True else Value.False
+        case o: Value.Obj =>
+          if (o.values.keys.toList.contains(item.eval(context).toStr.value)) Value.True else Value.False
+        case s: Value.Str =>
+          if (s.value.contains(item.eval(context).toStr.value)) Value.True else Value.False
+        case o =>
+          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
+      }
+    }
+  }
+
+  final case class NotIn(item: Expr, container: Expr) extends Expr {
+
+    override def eval(context: Context): Value = {
+      container.eval(context) match {
+        case a: Value.Arr =>
+          if (a.values.exists(i => (i `===` item.eval(context)) == Value.True)) Value.False else Value.True
+        case o: Value.Obj =>
+          if (o.values.keys.toList.contains(item.eval(context).toStr.value)) Value.False else Value.True
+        case s: Value.Str =>
+          if (s.value.contains(item.eval(context).toStr.value)) Value.False else Value.True
+        case o =>
+          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
+      }
+    }
+  }
 }
