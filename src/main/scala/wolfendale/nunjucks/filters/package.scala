@@ -1,5 +1,6 @@
 package wolfendale.nunjucks
 
+import wolfendale.nunjucks.expression.runtime.Value
 import wolfendale.nunjucks.expression.runtime.Value._
 
 package object filters {
@@ -32,10 +33,20 @@ package object filters {
     Str(string.toStr.value.toUpperCase)
   }
 
+  val lower: Filter = Filter { string =>
+    Str(string.toStr.value.toLowerCase)
+  }
+
+  val trim: Filter = Filter { string: Value =>
+    Str(string.toStr.value.trim)
+  }
+
   lazy val defaults: Map[String, Filter] = Map(
     "abs"        -> abs,
     "batch"      -> batch,
     "capitalize" -> capitalize,
-    "upper"      -> upper
+    "upper"      -> upper,
+    "lower"      -> lower,
+    "trim"       -> trim
   )
 }

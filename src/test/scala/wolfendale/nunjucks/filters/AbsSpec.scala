@@ -18,5 +18,20 @@ class AbsSpec extends FreeSpec with MustMatchers {
 
       environment.render("{{ 5 | abs }}") mustEqual "5"
     }
+
+    "must make negative infinity positive" in {
+
+      environment.render("{{ -Infinity | abs }}") mustEqual "Infinity"
+    }
+
+    "must leave infinity positive" in {
+
+      environment.render("{{ Infinity | abs }}") mustEqual "Infinity"
+    }
+
+    "must leave NaN as NaN" in {
+
+      environment.render("{{ NaN | abs }}") mustEqual "NaN"
+    }
   }
 }
