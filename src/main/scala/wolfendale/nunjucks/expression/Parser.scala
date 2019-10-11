@@ -160,12 +160,12 @@ object Parser {
 
   def obj[_: P] = {
     def entry =
-      P((identifier.map(_.value) | string.map(_.value)) ~/ ":" ~ expression)
-    P("{" ~/ entry.rep(sep = ",") ~ "}")
+      P((identifier.map(_.value) | string.map(_.value)) ~ ":" ~ expression)
+    P("{" ~ entry.rep(sep = ",") ~ "}")
       .map(entries => AST.Obj(entries.toMap))
   }
 
   def arr[_: P] =
-    P("[" ~/ (expression.rep(sep = ",") ~ "]"))
+    P("[" ~ (expression.rep(sep = ",") ~ "]"))
       .map(entries => AST.Arr(entries.toVector))
 }

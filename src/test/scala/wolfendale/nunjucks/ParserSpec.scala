@@ -11,7 +11,7 @@ class ParserSpec extends FreeSpec with MustMatchers with OptionValues {
 
     "must parse" in {
 
-      val a = "1 + 1 | foo('dang', foo = 1337)"
+      val a = "{ one: 1, two: 2 }"
 
       println(parse(a, Parser.expression(_)))
     }

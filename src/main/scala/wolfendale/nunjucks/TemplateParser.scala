@@ -23,7 +23,7 @@ object TemplateParser {
 
     def comment = {
       import MultiLineWhitespace._
-      P(openComment ~/ (!closeComment ~ AnyChar).rep.! ~ closeComment)
+      P(openComment ~ (!closeComment ~ AnyChar).rep.! ~ closeComment)
         .map(TemplateNode.Comment)
     }
 
@@ -79,7 +79,7 @@ object TemplateParser {
       P(open ~ partial ~ close).map(TemplateNode.For.tupled)
     }
 
-    def setTag = {
+    def setTag: P[TemplateNode.Tag] = {
 
       def set = {
         import SingleLineWhitespace._
@@ -222,7 +222,7 @@ object TemplateParser {
         .map(TemplateNode.Filter.tupled)
     }
 
-    def tag =
+    def tag: P[TemplateNode.Tag] =
       P(ifTag | forTag | setTag | verbatimTag | macroTag | callTag | includeTag | importTag | fromTag | blockTag | filterTag)
 
     import NunjucksWhitespace._

@@ -111,7 +111,7 @@ object Value {
       }
 
     override def toStr: Str =
-      Str("undefined")
+      Str("")
 
     override def toBool: Bool =
       False
