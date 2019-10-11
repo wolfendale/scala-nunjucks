@@ -225,7 +225,7 @@ object TemplateParser {
     def tag: P[TemplateNode.Tag] =
       P(ifTag | forTag | setTag | verbatimTag | macroTag | callTag | includeTag | importTag | fromTag | blockTag | filterTag)
 
-    import NunjucksWhitespace._
+    import NoWhitespace._
     def literal = {
       P((!(openTag | openExpression | openComment) ~~ AnyChar).rep(1).!)
         .map(TemplateNode.Literal)
