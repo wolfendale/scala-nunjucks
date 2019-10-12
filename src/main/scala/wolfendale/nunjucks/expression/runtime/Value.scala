@@ -1,5 +1,7 @@
 package wolfendale.nunjucks.expression.runtime
 
+import wolfendale.nunjucks.Frame
+
 import scala.annotation.tailrec
 import scala.util.Try
 
@@ -72,7 +74,7 @@ sealed abstract class Value {
   def access(identifier: String): Value =
     properties.getOrElse(identifier, Value.Undefined)
 
-  def apply(context: Obj, args: Function.Parameters): Value =
+  def apply(scope: Frame, args: Function.Parameters): Value =
     throw new RuntimeException(s"unable to call $this")
 
   def isDefined: Boolean = true
@@ -550,6 +552,9 @@ object Value {
 
     def set(name: String, value: Value): Obj =
       copy(values + (name -> value))
+
+    def merge(other: Value.Obj): Value.Obj =
+      Obj(values ++ other.values)
   }
 
   object Obj {
@@ -560,7 +565,7 @@ object Value {
     def empty: Obj = apply()
   }
 
-  final case class Function(fn: (Obj, Function.Parameters) => Value) extends Value {
+  final case class Function(fn: (Frame, Function.Parameters) => Value) extends Value {
 
     override def `==`(other: Value): Bool =
       this `===` other
@@ -574,8 +579,8 @@ object Value {
     override def toNumeric: Numeric =
       NaN
 
-    override def apply(context: Obj, args: Function.Parameters): Value =
-      fn(context, args)
+    override def apply(scope: Frame, args: Function.Parameters): Value =
+      fn(scope, args)
   }
 
   object Function {

@@ -10,9 +10,9 @@ abstract class Environment {
   def load(path: String): Option[Template]
 
   def renderTemplate(path: String): Option[String] =
-    renderTemplate(path, Value.Obj.empty)
+    renderTemplate(path, Frame.empty)
 
-  def renderTemplate(path: String, scope: Value.Obj): Option[String] = {
+  def renderTemplate(path: String, scope: Frame): Option[String] = {
     load(path).map(_.render.runA(Context(this, scope)).value)
   }
 
@@ -22,11 +22,12 @@ abstract class Environment {
   def render(template: String, scope: Value.Obj): String = {
     // TODO handle errors
     import fastparse._
-    parse(template, TemplateParser.template(_)).get.value.render.runA(Context(this, scope)).value
+//    parse(template, TemplateParser.template(_)).get.value.render.runA(Context(this, Scope(scope))).value
+    parse(template, TemplateParser.template(_)).get.value.render.runA(Context(this, Frame(scope).enter)).value
   }
 
-  def importTemplate(path: String): Option[Value.Obj] =
-    load(path).map(_.render.runS(Context(this, Value.Obj.empty)).value.scope)
+  def importTemplate(path: String): Option[Frame] =
+    load(path).map(_.render.runS(Context(this, Frame.empty)).value.scope)
 }
 
 final class ProvidedEnvironment(templates: Map[String, Template] = Map.empty) extends Environment {
