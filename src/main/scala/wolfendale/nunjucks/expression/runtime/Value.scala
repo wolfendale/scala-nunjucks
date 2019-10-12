@@ -75,6 +75,8 @@ sealed abstract class Value {
   def apply(context: Obj, args: Function.Parameters): Value =
     throw new RuntimeException(s"unable to call $this")
 
+  def isDefined: Boolean = true
+
   def toArr: Arr              = Arr.empty
   def destructure: Seq[Value] = Seq(this)
 
@@ -121,6 +123,8 @@ object Value {
 
     override def toNumeric: Numeric =
       NaN
+
+    override def isDefined: Boolean = false
   }
 
   sealed abstract class Bool extends Value {
