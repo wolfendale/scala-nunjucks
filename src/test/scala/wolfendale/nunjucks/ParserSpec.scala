@@ -49,7 +49,7 @@ class ParserSpec extends FreeSpec with MustMatchers with OptionValues {
         .add("c", c)
 
       val result = environment
-        .renderTemplate("c", Value.Obj.empty)
+        .renderTemplate("c")
         .value
 
       println(result)
@@ -68,7 +68,7 @@ class ParserSpec extends FreeSpec with MustMatchers with OptionValues {
     val environment = new ProvidedEnvironment(Map.empty)
       .add("a", a)
 
-    val result = environment.renderTemplate("a", Value.Obj.empty).value
+    val result = environment.renderTemplate("a").value
 
     println(result)
   }
@@ -86,7 +86,7 @@ class ParserSpec extends FreeSpec with MustMatchers with OptionValues {
     val environment = new ProvidedEnvironment(Map.empty)
       .add("a", a)
 
-    val result = environment.renderTemplate("a", Value.Obj.empty).value
+    val result = environment.renderTemplate("a").value
 
     println(s"!$result!")
   }
