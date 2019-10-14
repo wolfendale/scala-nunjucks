@@ -41,12 +41,28 @@ package object filters {
     Str(string.toStr.value.trim)
   }
 
+  val first: Filter = Filter {
+    _ match {
+      case arr: Arr =>
+        arr.destructure.headOption.getOrElse(Undefined)
+      case str: Str =>
+        str.value.headOption.map(_.toString).map(Str.apply).getOrElse(Undefined)
+      case Infinity | `-Infinity` =>
+        Undefined
+      case Value.Obj(_) | Number(_) | Value.True | Value.False | NaN =>
+        Undefined
+      case x =>
+        throw new RuntimeException(s"Cannot read property '0' of $x")
+    }
+  }
+
   lazy val defaults: Map[String, Filter] = Map(
     "abs"        -> abs,
     "batch"      -> batch,
     "capitalize" -> capitalize,
     "upper"      -> upper,
     "lower"      -> lower,
-    "trim"       -> trim
+    "trim"       -> trim,
+    "first"      -> first
   )
 }
