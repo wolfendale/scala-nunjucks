@@ -2,10 +2,12 @@ package wolfendale.nunjucks.expression
 
 import org.scalatest.{FreeSpec, MustMatchers}
 import wolfendale.nunjucks.ProvidedEnvironment
+import wolfendale.nunjucks.expression.runtime.Value
 
 class InOperatorSpec extends FreeSpec with MustMatchers {
 
   val environment = new ProvidedEnvironment()
+  val tester = new ExpressionTester()
 
   "the in operator" - {
 
@@ -13,12 +15,12 @@ class InOperatorSpec extends FreeSpec with MustMatchers {
 
       "must return true when an item exists" in {
 
-        environment.render("{{ 2 in [1, 2, 3] }}") mustEqual "true"
+        tester.evaluate("2 in [1, 2, 3]") mustEqual Value.True
       }
 
       "must return false when an item does not exist" in {
 
-        environment.render("{{ 2 in [1, 3] }}") mustEqual "false"
+        tester.evaluate("2 in [1, 3]") mustEqual Value.False
       }
     }
 
@@ -26,12 +28,12 @@ class InOperatorSpec extends FreeSpec with MustMatchers {
 
       "must return true when a key exists" in {
 
-        environment.render("{{ 'foo' in { foo: 1, bar: 2 } }}") mustEqual "true"
+        tester.evaluate("'foo' in { foo: 1, bar: 2}") mustEqual Value.True
       }
 
       "must return false when a key does not exist" in {
 
-        environment.render("{{ 'foo' in { bar: 2 } }}") mustEqual "false"
+        tester.evaluate("'foo' in { bar: 2 }") mustEqual Value.False
       }
     }
 
@@ -39,36 +41,36 @@ class InOperatorSpec extends FreeSpec with MustMatchers {
 
       "must return true when the substring is contained" in {
 
-        environment.render("{{ 'foo' in 'foobar' }}") mustEqual "true"
+        tester.evaluate("'foo' in 'foobar'") mustEqual Value.True
       }
 
       "must coerce the item to a string" in {
 
-        environment.render("{{ 1 in '1337' }}") mustEqual "true"
+        tester.evaluate("1 in '1337'") mustEqual Value.True
       }
 
       "must return false when the substring is not contained" in {
 
-        environment.render("{{ 'nothing' in 'foobar' }}") mustEqual "false"
+        tester.evaluate("'nothing' in 'foobar'") mustEqual Value.False
       }
     }
 
     "must throw an exception on any other container type" in {
 
       assertThrows[RuntimeException] {
-        environment.render("{{ 'foo' in 1 }}")
+        tester.evaluate("'foo' in 1")
       }
 
       assertThrows[RuntimeException] {
-        environment.render("{{ 1 in false }}")
+        tester.evaluate("1 in false")
       }
 
       assertThrows[RuntimeException] {
-        environment.render("{{ x in undefined }}")
+        tester.evaluate("x in undefined")
       }
 
       assertThrows[RuntimeException] {
-        environment.render("{{ 1.3 in null }}")
+        tester.evaluate("1.3 in null")
       }
     }
   }
@@ -79,12 +81,12 @@ class InOperatorSpec extends FreeSpec with MustMatchers {
 
       "must return false when an item exists" in {
 
-        environment.render("{{ 2 not in [1, 2, 3] }}") mustEqual "false"
+        tester.evaluate("2 not in [1, 2, 3]") mustEqual Value.False
       }
 
       "must return true when an item does not exist" in {
 
-        environment.render("{{ 2 not in [1, 3] }}") mustEqual "true"
+        tester.evaluate("2 not in [1, 3]") mustEqual Value.True
       }
     }
 
@@ -92,12 +94,12 @@ class InOperatorSpec extends FreeSpec with MustMatchers {
 
       "must return false when a key exists" in {
 
-        environment.render("{{ 'foo' not in { foo: 1, bar: 2 } }}") mustEqual "false"
+        tester.evaluate("'foo' not in { foo: 1, bar: 2 }") mustEqual Value.False
       }
 
       "must return true when a key does not exist" in {
 
-        environment.render("{{ 'foo' not in { bar: 2 } }}") mustEqual "true"
+        tester.evaluate("'foo' not in { bar: 2 }") mustEqual Value.True
       }
     }
 
@@ -105,36 +107,36 @@ class InOperatorSpec extends FreeSpec with MustMatchers {
 
       "must return false when the substring is contained" in {
 
-        environment.render("{{ 'foo' not in 'foobar' }}") mustEqual "false"
+        tester.evaluate("'foo' not in 'foobar'") mustEqual Value.False
       }
 
       "must coerce the item to a string" in {
 
-        environment.render("{{ 2 not in '1337' }}") mustEqual "true"
+        tester.evaluate("2 not in '1337'") mustEqual Value.True
       }
 
       "must return true when the substring is not contained" in {
 
-        environment.render("{{ 'nothing' not in 'foobar' }}") mustEqual "true"
+        tester.evaluate("'nothing' not in 'foobar'") mustEqual Value.True
       }
     }
 
     "must throw an exception on any other container type" in {
 
       assertThrows[RuntimeException] {
-        environment.render("{{ 'foo' not in 1 }}")
+        tester.evaluate("'foo' not in 1")
       }
 
       assertThrows[RuntimeException] {
-        environment.render("{{ 1 not in false }}")
+        tester.evaluate("1 not in false")
       }
 
       assertThrows[RuntimeException] {
-        environment.render("{{ x not in undefined }}")
+        tester.evaluate("x not in undefined")
       }
 
       assertThrows[RuntimeException] {
-        environment.render("{{ 1.3 not in null }}")
+        tester.evaluate("1.3 not in null")
       }
     }
   }
