@@ -5,20 +5,20 @@ import wolfendale.nunjucks.expression.runtime.Value.Function
 
 abstract class Filter {
 
-  def apply(scope: Value.Obj, value: Value, args: Function.Parameters): Value
+  def apply(scope: Frame, value: Value, args: Function.Parameters): Value
 }
 
 object Filter {
 
   def apply(f: Value => Value): Filter =
     new Filter {
-      override def apply(scope: Value.Obj, value: Value, args: Function.Parameters): Value =
+      override def apply(scope: Frame, value: Value, args: Function.Parameters): Value =
         f(value)
     }
 
   def apply(f: (Value, Function.Parameters) => Value): Filter =
     new Filter {
-      override def apply(scope: Value.Obj, value: Value, args: Function.Parameters): Value =
+      override def apply(scope: Frame, value: Value, args: Function.Parameters): Value =
         f(value, args)
     }
 }

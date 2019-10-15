@@ -15,6 +15,12 @@ sealed abstract class TemplateNode {
 
 object TemplateNode {
 
+  private def enterScope: State[Context, Unit] =
+    State.modify(_.enterScope)
+
+  private def exitScope: State[Context, Unit] =
+    State.modify(_.exitScope)
+
   final case class Partial(contents: Seq[TemplateNode]) extends TemplateNode {
 
     override def eval: State[Context, String] =
@@ -80,40 +86,42 @@ object TemplateNode {
                        elseCase: Option[Partial])
       extends Tag {
 
-    override def eval: State[Context, String] = State.inspect[Context, String] { context =>
+    private lazy val runFor = State[Context, String] { context =>
       val value = expr.eval(context).toArr.values
 
-      if (value.nonEmpty) {
-        value.zipWithIndex
-          .map {
-            case (subValues, i) =>
-              val loop = Value.Obj(
-                "index" -> Value.Number(i + 1),
-                "index0" -> Value.Number(i),
-                "revindex" -> Value.Number(value.length - i),
-                "revindex0" -> Value.Number(value.length - i - 1),
-                "first" -> (if (i == 0) Value.True else Value.False),
-                "last" -> (if (i == value.length - 1) Value.True
-                else Value.False),
-                "length" -> Value.Number(value.length)
-              )
-
-              val parameters =
-                identifiers.map(_.value).zip(subValues.destructure)
-              val scope = context.scope
-                .set("loop", loop)
-                .set(parameters: _*)
-
-              partial.eval.runA(context.setScope(scope))
-          }
-          .foldLeft("")(_ + _.value)
+      if (value.isEmpty) {
+        elseCase.fold((context, ""))(_.eval.run(context).value)
       } else {
-        elseCase match {
-          case Some(p) => p.eval.runA(context).value
-          case None => ""
+
+        value.zipWithIndex.foldLeft((context, "")) {
+          case ((c, m), (subValues, i)) =>
+            val loop = Value.Obj(
+              "index"     -> Value.Number(i + 1),
+              "index0"    -> Value.Number(i),
+              "revindex"  -> Value.Number(value.length - i),
+              "revindex0" -> Value.Number(value.length - i - 1),
+              "first"     -> (if (i == 0) Value.True else Value.False),
+              "last" -> (if (i == value.length - 1) Value.True
+                         else Value.False),
+              "length" -> Value.Number(value.length)
+            )
+
+            val parameters =
+              identifiers.map(_.value).zip(subValues.destructure)
+
+            val scope = c.setScope(parameters :+ ("loop" -> loop), resolveUp = false)
+
+            partial.eval.run(scope).value.map(m + _)
         }
       }
     }
+
+    override def eval: State[Context, String] =
+      for {
+        _      <- enterScope
+        output <- runFor
+        _      <- exitScope
+      } yield output
   }
 
   final case class Set(names: NonEmptyList[expression.syntax.AST.Identifier], expr: expression.syntax.AST) extends Tag {
@@ -124,7 +132,7 @@ object TemplateNode {
         .flatMap { value =>
           names
             .foldLeft(State.pure[Context, Unit](())) { (m, n) =>
-              m.flatMap(_ => State.modify(_.setScope(n.value, value)))
+              m.flatMap(_ => State.modify(_.setScope(n.value, value, resolveUp = true)))
             }
             .map(_ => "")
         }
@@ -135,7 +143,7 @@ object TemplateNode {
     override def eval: State[Context, String] = partial.eval.flatMap { content =>
       names
         .foldLeft(State.pure[Context, Unit](())) { (m, n) =>
-          m.flatMap(_ => State.modify(_.setScope(n.value, Value.Str(content))))
+          m.flatMap(_ => State.modify(_.setScope(n.value, Value.Str(content), resolveUp = true)))
         }
         .map(_ => "")
     }
@@ -175,11 +183,11 @@ object TemplateNode {
 
             Value.Str(
               content.eval
-                .runA(context.setScope(callingScope.set(completeParameters: _*)))
+                .runA(context.setScope(callingScope.set(completeParameters, resolveUp = false)))
                 .value)
           }
 
-          context.setScope(identifier.value, body)
+          context.setScope(identifier.value, body, resolveUp = false)
         }
         .map(_ => "")
   }
@@ -200,7 +208,7 @@ object TemplateNode {
       })
 
       context
-        .getScope(identifier.value)(context.setScope("caller", body).scope, resolvedParameters)
+        .getScope(identifier.value)(context.setScope("caller", body, resolveUp = false).scope, resolvedParameters)
         .toStr
         .value
     }
@@ -226,7 +234,7 @@ object TemplateNode {
           context.environment
             .importTemplate(partial)
             .map { scope =>
-              context.setScope(identifier.value, scope)
+              context.setScope(identifier.value, scope.value, resolveUp = false)
             }
             .getOrElse(throw new RuntimeException(s"missing template `$partial`"))
         }
@@ -249,7 +257,7 @@ object TemplateNode {
                   case (key, preferred) =>
                     preferred.getOrElse(key).value -> scope.get(key.value)
                 }
-              context.setScope(values: _*)
+              context.setScope(values, resolveUp = false)
             }
             .getOrElse(throw new RuntimeException(s"missing template `$partial`"))
         }
@@ -265,7 +273,7 @@ object TemplateNode {
             result
           }
 
-          Value.Str(partial.eval.runA(context.setScope("super", superFn)).value)
+          Value.Str(partial.eval.runA(context.setScope("super", superFn, resolveUp = false)).value)
         }
         .toStr
         .value
@@ -285,7 +293,6 @@ object TemplateNode {
       for {
         content <- partial.eval
         result <- State.inspect { context: Context =>
-
                    val parameters = Value.Function.Parameters(args.map {
                      case (k, v) =>
                        Value.Function.Parameter(k.map(_.value), v.eval(context))
