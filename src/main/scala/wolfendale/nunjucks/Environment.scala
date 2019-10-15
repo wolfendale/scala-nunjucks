@@ -22,7 +22,6 @@ abstract class Environment {
   def render(template: String, scope: Value.Obj): String = {
     // TODO handle errors
     import fastparse._
-//    parse(template, TemplateParser.template(_)).get.value.render.runA(Context(this, Scope(scope))).value
     parse(template, TemplateParser.template(_)).get.value.render.runA(Context(this, Frame(scope).enter)).value
   }
 
