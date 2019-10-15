@@ -150,6 +150,12 @@ object AST {
       left.eval(context) - right.eval(context)
   }
 
+  final case class Concat(left: Expr, right: Expr) extends Expr {
+
+    override def eval(context: Context): Value =
+      Value.Str(left.eval(context).toStr.value + right.eval(context).toStr.value)
+  }
+
   final case class Multiply(left: Expr, right: Expr) extends Expr {
 
     override def eval(context: Context): Value =

@@ -74,7 +74,8 @@ object Parser {
     def addition = {
       def plus  = binop("+", multiplication, AST.Plus)
       def minus = binop("-", multiplication, AST.Minus)
-      recurBinop(multiplication, P(plus | minus))
+      def concat = binop("~", multiplication, AST.Concat)
+      recurBinop(multiplication, P(plus | minus | concat))
     }
 
     def comparison = {
