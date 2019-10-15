@@ -66,8 +66,11 @@ sealed abstract class Value {
   def ||(other: Value): Bool =
     toBool || other
 
-  def access(other: String): Value =
-    Undefined
+  def properties: Map[String, Value] =
+    Map.empty
+
+  def access(identifier: String): Value =
+    properties.getOrElse(identifier, Value.Undefined)
 
   def apply(context: Obj, args: Function.Parameters): Value =
     throw new RuntimeException(s"unable to call $this")
@@ -486,15 +489,19 @@ object Value {
     override def toNumeric: Numeric =
       toStr.toNumeric
 
-    override def access(name: String): Value = {
+    override def access(identifier: String): Value = {
 
       val result = for {
-        index <- Try(name.toInt).toOption
+        index <- Try(identifier.toInt).toOption
         value <- values.lift(index)
       } yield value
 
-      result.getOrElse(Undefined)
+      result.getOrElse(super.access(identifier))
     }
+
+    override val properties: Map[String, Value] = Map(
+      "length" -> Value.Number(values.length)
+    )
 
     override def destructure: Seq[Value] =
       values
@@ -528,8 +535,8 @@ object Value {
     override def toNumeric: Numeric =
       NaN
 
-    override def access(name: String): Value =
-      values.getOrElse(name, Undefined)
+    override val properties: Map[String, Value] =
+      values
 
     def get(name: String): Value =
       access(name)
