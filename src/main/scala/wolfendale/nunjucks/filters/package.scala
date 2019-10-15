@@ -56,6 +56,10 @@ package object filters {
     }
   }
 
+  val string: Filter = Filter { string: Value =>
+    string.toStr
+  }
+
   lazy val defaults: Map[String, Filter] = Map(
     "abs"        -> abs,
     "batch"      -> batch,
@@ -63,6 +67,7 @@ package object filters {
     "upper"      -> upper,
     "lower"      -> lower,
     "trim"       -> trim,
-    "first"      -> first
+    "first"      -> first,
+    "string"     -> string
   )
 }

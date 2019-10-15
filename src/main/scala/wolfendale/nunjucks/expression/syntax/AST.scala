@@ -4,7 +4,6 @@ import wolfendale.nunjucks.Context
 import wolfendale.nunjucks.expression.runtime.Value
 
 sealed abstract class AST {
-
   def eval(context: Context): Value
 }
 
@@ -18,14 +17,19 @@ object AST {
   }
 
   case object Null extends Primitive(Value.Null)
+
   case object Undefined extends Primitive(Value.Undefined)
 
   sealed trait Bool extends Expr
+
   case object True extends Primitive(Value.True) with Bool
+
   case object False extends Primitive(Value.False) with Bool
 
   sealed trait Numeric extends Expr
+
   case object Infinity extends Primitive(Value.Infinity) with Numeric
+
   final case class Number(value: Double) extends Primitive(Value.Number(value)) with Numeric
 
   final case class Str(value: String) extends Primitive(Value.Str(value))
@@ -207,8 +211,7 @@ object AST {
     }
   }
 
-  final case class Call(expr: Expr, args: Seq[(Option[Identifier], Expr)])
-      extends Expr {
+  final case class Call(expr: Expr, args: Seq[(Option[Identifier], Expr)]) extends Expr {
 
     override def eval(context: Context): Value = {
 
@@ -230,7 +233,9 @@ object AST {
           Value.Function.Parameter(k.map(_.value), v.eval(context))
       })
 
-      context.getFilter(identifier.value).map(_.apply(context.scope, expr.eval(context), parameters))
+      context
+        .getFilter(identifier.value)
+        .map(_.apply(context.scope, expr.eval(context), parameters))
         .getOrElse(throw new RuntimeException(s"No filter with name: ${identifier.value}"))
     }
   }
@@ -244,4 +249,62 @@ object AST {
         other.map(_.eval(context)).getOrElse(Value.Undefined)
       }
   }
+
+  final case class In(item: Expr, container: Expr) extends Expr {
+
+    override def eval(context: Context): Value = {
+      container.eval(context) match {
+        case a: Value.Arr =>
+          if (a.values.exists(i => (i `===` item.eval(context)) == Value.True)) Value.True else Value.False
+        case o: Value.Obj =>
+          if (o.values.keys.toList.contains(item.eval(context).toStr.value)) Value.True else Value.False
+        case s: Value.Str =>
+          if (s.value.contains(item.eval(context).toStr.value)) Value.True else Value.False
+        case o =>
+          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
+      }
+    }
+  }
+
+  final case class NotIn(item: Expr, container: Expr) extends Expr {
+
+    override def eval(context: Context): Value = {
+      container.eval(context) match {
+        case a: Value.Arr =>
+          if (a.values.exists(i => (i `===` item.eval(context)) == Value.True)) Value.False else Value.True
+        case o: Value.Obj =>
+          if (o.values.keys.toList.contains(item.eval(context).toStr.value)) Value.False else Value.True
+        case s: Value.Str =>
+          if (s.value.contains(item.eval(context).toStr.value)) Value.False else Value.True
+        case o =>
+          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
+      }
+    }
+  }
+
+  final case class Regex(pattern: String, flags: Set[RegexFlag] = Set.empty) extends Expr {
+    override def eval(context: Context): Value = Value.Regex(pattern, flags.map(Value.RegexFlag.apply))
+  }
+
+  sealed abstract class RegexFlag(val flag: String)
+
+  object RegexFlag {
+    def apply(allFlags: String): Set[RegexFlag] =
+      allFlags.split("").toSet[String].collect {
+        case ApplyGlobally.flag   => ApplyGlobally
+        case CaseInsensitive.flag => CaseInsensitive
+        case MultiLine.flag       => MultiLine
+        case Sticky.flag          => Sticky
+      }
+
+    final case object ApplyGlobally extends RegexFlag("g")
+
+    final case object CaseInsensitive extends RegexFlag("i")
+
+    final case object MultiLine extends RegexFlag("m")
+
+    final case object Sticky extends RegexFlag("y")
+
+  }
+
 }
