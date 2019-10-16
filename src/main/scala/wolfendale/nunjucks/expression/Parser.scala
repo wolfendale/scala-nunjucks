@@ -8,19 +8,6 @@ object Parser {
 
   def expression[_: P]: P[AST.Expr] = {
 
-    def recurBinop(previousTerm: => P[AST.Expr], operators: => P[AST.Expr => AST.Expr]): P[AST.Expr] = {
-
-      val combine = (first: AST.Expr, rest: Seq[AST.Expr => AST.Expr]) =>
-        rest.tail.foldLeft(rest.head(first)) { (m, n) =>
-          n(m)
-      }
-
-      P((previousTerm ~ operators.rep(1)).map(combine.tupled) | previousTerm)
-    }
-
-    def binop[A <: AST.Expr](op: String, previousTerm: => P[AST.Expr], f: (AST.Expr, AST.Expr) => A): P[AST.Expr => A] =
-      P(op ~ previousTerm).map(x => f(_, x))
-
     def primary =
       P(boolean | `null` | `undefined` | number | string | identifier | obj | arr)
 
@@ -37,7 +24,7 @@ object Parser {
       def call =
         P(
           "(" ~ ((identifier ~ "=").? ~ expression)
-            .rep(sep = ",") ~ ")").map(Call)
+            .rep(sep = ","./) ~ ")").map(Call)
       P(group ~ (directAccess | computedAccess | call).rep).map {
         case (lhs, chunks) =>
           chunks.foldLeft(lhs) {
@@ -58,56 +45,63 @@ object Parser {
       P(not | plus | minus | access | group)
     }
 
-    def power: P[AST.Expr] = {
-      def pow = binop("**", unary, AST.Pow)
-      recurBinop(unary, pow)
+    def binop(previousTerm: => P[AST.Expr], op: => P[AST.BinaryOperator.Operation]) = P {
+      (previousTerm ~ (op ~ previousTerm).rep).map {
+        case (left, rest) =>
+          rest.foldLeft(left) {
+            case (l, (operator, r)) =>
+              AST.BinaryOperator(operator, l, r)
+          }
+      }
     }
 
+    def power: P[AST.Expr] = binop(unary, P("**").map(_ => AST.BinaryOperator.Power))
+
     def multiplication = {
-      def multiply  = binop("*", power, AST.Multiply)
-      def divide    = binop("/", power, AST.Divide)
-      def idivide   = binop("//", power, AST.IDivide)
-      def remainder = binop("%", power, AST.Remainder)
-      recurBinop(power, P(multiply | divide | idivide | remainder))
+      def multiply = P("*").map(_ => AST.BinaryOperator.Multiply)
+      def idivide = P("//").map(_ => AST.BinaryOperator.IDivide)
+      def divide = P("/").map(_ => AST.BinaryOperator.Divide)
+      def remainder = P("%").map(_ => AST.BinaryOperator.Remainder)
+      binop(power, P(multiply | idivide | divide | remainder))
     }
 
     def addition = {
-      def plus  = binop("+", multiplication, AST.Plus)
-      def minus = binop("-", multiplication, AST.Minus)
-      def concat = binop("~", multiplication, AST.Concat)
-      recurBinop(multiplication, P(plus | minus | concat))
+      def plus = P("+").map(_ => AST.BinaryOperator.Plus)
+      def minus = P("-").map(_ => AST.BinaryOperator.Minus)
+      def concat = P("~").map(_ => AST.BinaryOperator.Concat)
+      binop(multiplication, P(plus | minus | concat))
     }
 
     def comparison = {
-      def gt  = binop(">", addition, AST.GT)
-      def gte = binop(">=", addition, AST.GTE)
-      def lt  = binop("<", addition, AST.LT)
-      def lte = binop("<=", addition, AST.LTE)
-      def in = binop("in", addition, AST.In)
-      def notIn = binop("not in", addition, AST.NotIn)
-      recurBinop(addition, P(gt | gte | lt | lte | notIn | in))
+      def gt = P(">").map(_ => AST.BinaryOperator.GT)
+      def gte = P(">=").map(_ => AST.BinaryOperator.GTE)
+      def lt = P("<").map(_ => AST.BinaryOperator.LT)
+      def lte = P("<=").map(_ => AST.BinaryOperator.LTE)
+      def in = P("in").map(_ => AST.BinaryOperator.In)
+      def notIn = P("not " ~ "in").map(_ => AST.BinaryOperator.NotIn)
+      binop(addition, P(gt | gte | lt | lte | in | notIn))
     }
 
     def equality = {
-      def eq   = binop("==", comparison, AST.Equality)
-      def neq  = binop("!=", comparison, AST.Inequality)
-      def seq  = binop("===", comparison, AST.StrictEquality)
-      def sneq = binop("!==", comparison, AST.StrictInequality)
-      recurBinop(comparison, P(eq | neq | seq | sneq))
+      def eq = P("==").map(_ => AST.BinaryOperator.Equality)
+      def neq = P("!=").map(_ => AST.BinaryOperator.Inequality)
+      def seq = P("===").map(_ => AST.BinaryOperator.StrictEquality)
+      def sneq = P("!==").map(_ => AST.BinaryOperator.StrictInequality)
+      binop(comparison, P(eq | neq | seq | sneq))
     }
 
     def and = {
-      def and = binop("and", equality, AST.And)
-      recurBinop(equality, and)
+      def and = P("and").map(_ => AST.BinaryOperator.And)
+      binop(equality, and)
     }
 
     def or = {
-      def or = binop("or", and, AST.Or)
-      recurBinop(and, or)
+      def or = P("or").map(_ => AST.BinaryOperator.Or)
+      binop(and, or)
     }
 
     def conditional = {
-      def conditional = P(or ~ "if" ~ expression ~ ("else" ~ expression).?).map(AST.If.tupled)
+      def conditional = P(NoCut(primary) ~ "if" ~ expression ~ ("else" ~ expression).?).map(AST.If.tupled)
       P(conditional | or)
     }
 
@@ -154,8 +148,8 @@ object Parser {
   def string[_: P] = {
     def withDelimiter(delim: Char) = {
       def stringChars = P(CharsWhile(c => c != delim && c != '\\'))
-      def escaped     = P("\\" ~/ CharIn("\"\\\\"))
-      P(s"$delim" ~ (stringChars | escaped).rep.! ~ s"$delim")
+      def escaped     = P("\\" ~ CharIn("\"\\\\"))
+      P(s"$delim" ~ (stringChars | escaped).rep.!./ ~ s"$delim")
         .map(AST.Str)
     }
     withDelimiter('\"') | withDelimiter('\'')

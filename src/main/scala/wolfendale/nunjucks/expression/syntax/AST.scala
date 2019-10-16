@@ -78,112 +78,133 @@ object AST {
       !operand.eval(context)
   }
 
-  final case class Equality(left: Expr, right: Expr) extends Expr {
+  final case class BinaryOperator(operator: BinaryOperator.Operation, left: Expr, right: Expr) extends Expr {
 
     override def eval(context: Context): Value =
-      left.eval(context) `==` right.eval(context)
+      operator.eval(left.eval(context), right.eval(context))
   }
 
-  final case class Inequality(left: Expr, right: Expr) extends Expr {
+  object BinaryOperator {
 
-    override def eval(context: Context): Value =
-      left.eval(context) `!=` right.eval(context)
-  }
+    sealed abstract class Operation {
+      def eval(left: Value, right: Value): Value
+    }
 
-  final case class StrictEquality(left: Expr, right: Expr) extends Expr {
+    case object Equality extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left `==` right
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) `===` right.eval(context)
-  }
+    case object Inequality extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left `!=` right
+    }
 
-  final case class StrictInequality(left: Expr, right: Expr) extends Expr {
+    case object StrictEquality extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left `===` right
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) `!==` right.eval(context)
-  }
+    case object StrictInequality extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left `!==` right
+    }
 
-  final case class GT(left: Expr, right: Expr) extends Expr {
+    case object GT extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left > right
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) > right.eval(context)
-  }
+    case object GTE extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left >= right
+    }
 
-  final case class GTE(left: Expr, right: Expr) extends Expr {
+    case object LT extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left < right
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) >= right.eval(context)
-  }
+    case object LTE extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left <= right
+    }
 
-  final case class LT(left: Expr, right: Expr) extends Expr {
+    case object And extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left && right
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) < right.eval(context)
-  }
+    case object Or extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left || right
+    }
 
-  final case class LTE(left: Expr, right: Expr) extends Expr {
+    case object Plus extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left + right
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) <= right.eval(context)
-  }
+    case object Minus extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left - right
+    }
 
-  final case class And(left: Expr, right: Expr) extends Expr {
+    case object Concat extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        Value.Str(left.toStr.value + right.toStr.value)
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) && right.eval(context)
-  }
+    case object Multiply extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left * right
+    }
 
-  final case class Or(left: Expr, right: Expr) extends Expr {
+    case object Divide extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left / right
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) || right.eval(context)
-  }
+    case object IDivide extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left idiv right
+    }
 
-  final case class Plus(left: Expr, right: Expr) extends Expr {
+    case object Remainder extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left % right
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) + right.eval(context)
-  }
+    case object Power extends Operation {
+      override def eval(left: Value, right: Value): Value =
+        left ** right
+    }
 
-  final case class Minus(left: Expr, right: Expr) extends Expr {
+    case object In extends Operation {
+      override def eval(left: Value, right: Value): Value = right match {
+        case a: Value.Arr =>
+          if (a.values.exists(i => (i `===` left) == Value.True)) Value.True else Value.False
+        case o: Value.Obj =>
+          if (o.values.keys.toList.contains(left.toStr.value)) Value.True else Value.False
+        case s: Value.Str =>
+          if (s.value.contains(left.toStr.value)) Value.True else Value.False
+        case o =>
+          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
+      }
+    }
 
-    override def eval(context: Context): Value =
-      left.eval(context) - right.eval(context)
-  }
-
-  final case class Concat(left: Expr, right: Expr) extends Expr {
-
-    override def eval(context: Context): Value =
-      Value.Str(left.eval(context).toStr.value + right.eval(context).toStr.value)
-  }
-
-  final case class Multiply(left: Expr, right: Expr) extends Expr {
-
-    override def eval(context: Context): Value =
-      left.eval(context) * right.eval(context)
-  }
-
-  final case class Divide(left: Expr, right: Expr) extends Expr {
-
-    override def eval(context: Context): Value =
-      left.eval(context) / right.eval(context)
-  }
-
-  final case class IDivide(left: Expr, right: Expr) extends Expr {
-
-    override def eval(context: Context): Value =
-      left.eval(context) idiv right.eval(context)
-  }
-
-  final case class Remainder(left: Expr, right: Expr) extends Expr {
-
-    override def eval(context: Context): Value =
-      left.eval(context) % right.eval(context)
-  }
-
-  final case class Pow(left: Expr, right: Expr) extends Expr {
-
-    override def eval(context: Context): Value =
-      left.eval(context) ** right.eval(context)
+    case object NotIn extends Operation {
+      override def eval(left: Value, right: Value): Value = right match {
+        case a: Value.Arr =>
+          if (a.values.exists(i => (i `===` left) == Value.True)) Value.False else Value.True
+        case o: Value.Obj =>
+          if (o.values.keys.toList.contains(left.toStr.value)) Value.False else Value.True
+        case s: Value.Str =>
+          if (s.value.contains(left.toStr.value)) Value.False else Value.True
+        case o =>
+          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
+      }
+    }
   }
 
   final case class Call(expr: Expr, args: Seq[(Option[Identifier], Expr)])
@@ -222,37 +243,5 @@ object AST {
       } else {
         other.map(_.eval(context)).getOrElse(Value.Undefined)
       }
-  }
-
-  final case class In(item: Expr, container: Expr) extends Expr {
-
-    override def eval(context: Context): Value = {
-      container.eval(context) match {
-        case a: Value.Arr =>
-          if (a.values.exists(i => (i `===` item.eval(context)) == Value.True)) Value.True else Value.False
-        case o: Value.Obj =>
-          if (o.values.keys.toList.contains(item.eval(context).toStr.value)) Value.True else Value.False
-        case s: Value.Str =>
-          if (s.value.contains(item.eval(context).toStr.value)) Value.True else Value.False
-        case o =>
-          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
-      }
-    }
-  }
-
-  final case class NotIn(item: Expr, container: Expr) extends Expr {
-
-    override def eval(context: Context): Value = {
-      container.eval(context) match {
-        case a: Value.Arr =>
-          if (a.values.exists(i => (i `===` item.eval(context)) == Value.True)) Value.False else Value.True
-        case o: Value.Obj =>
-          if (o.values.keys.toList.contains(item.eval(context).toStr.value)) Value.False else Value.True
-        case s: Value.Str =>
-          if (s.value.contains(item.eval(context).toStr.value)) Value.False else Value.True
-        case o =>
-          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
-      }
-    }
   }
 }

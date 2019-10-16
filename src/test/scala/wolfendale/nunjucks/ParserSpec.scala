@@ -2,7 +2,7 @@ package wolfendale.nunjucks
 
 import fastparse._
 import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
-import wolfendale.nunjucks.expression.Parser
+import wolfendale.nunjucks.expression.{ExpressionTester, Parser}
 import wolfendale.nunjucks.expression.runtime.Value
 
 class ParserSpec extends FreeSpec with MustMatchers with OptionValues {
