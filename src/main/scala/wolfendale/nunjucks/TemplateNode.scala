@@ -6,6 +6,8 @@ import cats.implicits._
 import wolfendale.nunjucks.TemplateNode.Partial
 import wolfendale.nunjucks.expression.runtime.Value
 
+import scala.annotation.tailrec
+
 // TODO: allow for custom Tags
 
 sealed abstract class TemplateNode {
@@ -49,7 +51,18 @@ object TemplateNode {
 
     override def eval: State[Context, String] =
       State.inspect { context =>
-        expr.eval(context).toStr.value
+        output(expr.eval(context))
+      }
+
+    private def output(value: Value): String = value match {
+        // Nunjucks runtime surpresses 'undefined' or 'null' values from being output:
+        // https://github.com/mozilla/nunjucks/blob/1485a44297f1fef3dfd5db0d8e7e047ed1709822/nunjucks/src/runtime.js#L209-L217
+        case Value.Undefined | Value.Null =>
+          ""
+        case Value.Arr(values) =>
+          values.map(output).mkString(",")
+        case result =>
+          result.toStr.value
       }
   }
 
