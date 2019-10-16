@@ -6,7 +6,6 @@ import wolfendale.nunjucks.expression.runtime.Value
 
 class InOperatorSpec extends FreeSpec with MustMatchers {
 
-  val environment = new ProvidedEnvironment()
   val tester = new ExpressionTester()
 
   "the in operator" - {
