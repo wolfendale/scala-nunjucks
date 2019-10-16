@@ -46,7 +46,7 @@ class ForTagSpec extends FreeSpec with MustMatchers {
     }
 
     // TODO fix issue parsing nested array literal
-    "must destructure nested arrays" ignore {
+    "must destructure nested arrays" in {
 
       val result = environment.render("{% for i, j in [[1, 2], [3, 4]] %}{{ i + j }}{% endfor %}")
 

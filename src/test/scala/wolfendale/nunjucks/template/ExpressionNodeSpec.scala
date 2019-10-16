@@ -88,15 +88,13 @@ class ExpressionNodeSpec extends FreeSpec with MustMatchers {
       result mustEqual "1,,3"
     }
 
-    // Test takes a long time due to array issue
-    "must output arrays with Infinity elements" ignore {
+    "must output arrays with Infinity elements" in {
       val result = environment.render("{{ [1,(1/0),3] }}")
 
       result mustEqual "1,Infinity,3"
     }
 
-    // Test takes a long time due to array issue
-    "must output arrays with NaN elements" ignore {
+    "must output arrays with NaN elements" in {
       val result = environment.render("{{ [1,(+'asdf'),3] }}")
 
       result mustEqual "1,NaN,3"
