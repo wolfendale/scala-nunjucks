@@ -55,15 +55,15 @@ object TemplateNode {
       }
 
     private def output(value: Value): String = value match {
-        // Nunjucks runtime surpresses 'undefined' or 'null' values from being output:
-        // https://github.com/mozilla/nunjucks/blob/1485a44297f1fef3dfd5db0d8e7e047ed1709822/nunjucks/src/runtime.js#L209-L217
-        case Value.Undefined | Value.Null =>
-          ""
-        case Value.Arr(values) =>
-          values.map(output).mkString(",")
-        case result =>
-          result.toStr.value
-      }
+      // Nunjucks runtime surpresses 'undefined' or 'null' values from being output:
+      // https://github.com/mozilla/nunjucks/blob/1485a44297f1fef3dfd5db0d8e7e047ed1709822/nunjucks/src/runtime.js#L209-L217
+      case Value.Undefined | Value.Null =>
+        ""
+      case Value.Arr(values) =>
+        values.map(output).mkString(",")
+      case result =>
+        result.toStr.value
+    }
   }
 
   sealed abstract class Tag extends TemplateNode
@@ -81,7 +81,8 @@ object TemplateNode {
           case None =>
             Monad[State[Context, ?]].ifM(State.inspect(context => n.condition.eval(context) == Value.True))(
               ifTrue = n.content.eval.map(_.some),
-              ifFalse = State.pure(None))
+              ifFalse = State.pure(None)
+            )
           case some => State.pure(some)
         }
       }
@@ -93,11 +94,12 @@ object TemplateNode {
     final case class ConditionalContent(condition: expression.syntax.AST, content: Partial)
   }
 
-  final case class For(identifiers: Seq[expression.syntax.AST.Identifier],
-                       expr: expression.syntax.AST.Expr,
-                       partial: Partial,
-                       elseCase: Option[Partial])
-      extends Tag {
+  final case class For(
+      identifiers: Seq[expression.syntax.AST.Identifier],
+      expr: expression.syntax.AST.Expr,
+      partial: Partial,
+      elseCase: Option[Partial]
+  ) extends Tag {
 
     private lazy val runFor = State[Context, String] { context =>
       val value = expr.eval(context).toArr.values
@@ -168,10 +170,11 @@ object TemplateNode {
       State.pure(content)
   }
 
-  final case class Macro(identifier: expression.syntax.AST.Identifier,
-                         args: Map[expression.syntax.AST.Identifier, Option[expression.syntax.AST.Expr]],
-                         content: Partial)
-      extends Tag {
+  final case class Macro(
+      identifier: expression.syntax.AST.Identifier,
+      args: Map[expression.syntax.AST.Identifier, Option[expression.syntax.AST.Expr]],
+      content: Partial
+  ) extends Tag {
 
     override def eval: State[Context, String] =
       State
@@ -197,7 +200,8 @@ object TemplateNode {
             Value.Str(
               content.eval
                 .runA(context.setScope(callingScope.set(completeParameters, resolveUp = false)))
-                .value)
+                .value
+            )
           }
 
           context.setScope(identifier.value, body, resolveUp = false)
@@ -205,10 +209,11 @@ object TemplateNode {
         .map(_ => "")
   }
 
-  final case class Call(identifier: expression.syntax.AST.Identifier,
-                        parameters: Seq[(Option[expression.syntax.AST.Identifier], expression.syntax.AST.Expr)],
-                        partial: Partial)
-      extends Tag {
+  final case class Call(
+      identifier: expression.syntax.AST.Identifier,
+      parameters: Seq[(Option[expression.syntax.AST.Identifier], expression.syntax.AST.Expr)],
+      partial: Partial
+  ) extends Tag {
 
     override def eval: State[Context, String] = State.inspect[Context, String] { context =>
       val body = Value.Function { (scope, _) =>
@@ -254,9 +259,10 @@ object TemplateNode {
         .map(_ => "")
   }
 
-  final case class From(expr: expression.syntax.AST.Expr,
-                        identifiers: Seq[(expression.syntax.AST.Identifier, Option[expression.syntax.AST.Identifier])])
-      extends Tag {
+  final case class From(
+      expr: expression.syntax.AST.Expr,
+      identifiers: Seq[(expression.syntax.AST.Identifier, Option[expression.syntax.AST.Identifier])]
+  ) extends Tag {
 
     override def eval: State[Context, String] =
       State
@@ -297,10 +303,11 @@ object TemplateNode {
     }
   }
 
-  final case class Filter(identifier: expression.syntax.AST.Identifier,
-                          args: Seq[(Option[expression.syntax.AST.Identifier], expression.syntax.AST.Expr)],
-                          partial: Partial)
-      extends Tag {
+  final case class Filter(
+      identifier: expression.syntax.AST.Identifier,
+      args: Seq[(Option[expression.syntax.AST.Identifier], expression.syntax.AST.Expr)],
+      partial: Partial
+  ) extends Tag {
 
     override def eval: State[Context, String] =
       for {

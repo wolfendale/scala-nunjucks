@@ -14,7 +14,7 @@ class FrameSpec extends FreeSpec with MustMatchers with OptionValues {
         val scope = Frame.empty
           .set("foo", Value.Str("bar"), resolveUp = false)
 
-        scope.get("baz") mustNot be (defined)
+        scope.get("baz") mustNot be(defined)
       }
 
       "must return a value from a scope if it exists" in {
@@ -50,19 +50,17 @@ class FrameSpec extends FreeSpec with MustMatchers with OptionValues {
 
       "must set a value on the most specific scope" in {
 
-        val result = Frame.empty
-          .enter
+        val result = Frame.empty.enter
           .set("foo", Value.Str("bar"), resolveUp = false)
           .exit
           .get("foo")
 
-        result mustNot be (defined)
+        result mustNot be(defined)
       }
 
       "must modify a value on the correct scope when resolveUp is true" in {
 
-        val scope = Frame.empty
-          .enter
+        val scope = Frame.empty.enter
           .set("foo", Value.Str("bar"), resolveUp = false)
           .enter
           .set("foo", Value.Str("rab"), resolveUp = true)
@@ -108,7 +106,7 @@ class FrameSpec extends FreeSpec with MustMatchers with OptionValues {
           .set("foo", Value.Str("bar"), resolveUp = false)
 
         result.value mustEqual Value.Obj(
-          "foo" -> Value.Str("bar"),
+          "foo"  -> Value.Str("bar"),
           "fork" -> Value.Str("spoon")
         )
       }

@@ -13,7 +13,7 @@ object Parser {
       val combine = (first: AST.Expr, rest: Seq[AST.Expr => AST.Expr]) =>
         rest.tail.foldLeft(rest.head(first)) { (m, n) =>
           n(m)
-      }
+        }
 
       P((previousTerm ~ operators.rep(1)).map(combine.tupled) | previousTerm)
     }
@@ -37,7 +37,8 @@ object Parser {
       def call =
         P(
           "(" ~ ((identifier ~ "=").? ~ expression)
-            .rep(sep = ",") ~ ")").map(Call)
+            .rep(sep = ",") ~ ")"
+        ).map(Call)
       P(group ~ (directAccess | computedAccess | call).rep).map {
         case (lhs, chunks) =>
           chunks.foldLeft(lhs) {
@@ -72,18 +73,18 @@ object Parser {
     }
 
     def addition = {
-      def plus  = binop("+", multiplication, AST.Plus)
-      def minus = binop("-", multiplication, AST.Minus)
+      def plus   = binop("+", multiplication, AST.Plus)
+      def minus  = binop("-", multiplication, AST.Minus)
       def concat = binop("~", multiplication, AST.Concat)
       recurBinop(multiplication, P(plus | minus | concat))
     }
 
     def comparison = {
-      def gt  = binop(">", addition, AST.GT)
-      def gte = binop(">=", addition, AST.GTE)
-      def lt  = binop("<", addition, AST.LT)
-      def lte = binop("<=", addition, AST.LTE)
-      def in = binop("in", addition, AST.In)
+      def gt    = binop(">", addition, AST.GT)
+      def gte   = binop(">=", addition, AST.GTE)
+      def lt    = binop("<", addition, AST.LT)
+      def lte   = binop("<=", addition, AST.LTE)
+      def in    = binop("in", addition, AST.In)
       def notIn = binop("not in", addition, AST.NotIn)
       recurBinop(addition, P(gt | gte | lt | lte | notIn | in))
     }
@@ -114,8 +115,9 @@ object Parser {
     // TODO Is this the right precedence for filter call?
     def filterCall = {
       P(
-        conditional ~ ("|" ~ identifier ~ ("(" ~ ((identifier ~ "=").? ~ expression).rep(sep = ",") ~ ")").?.map(
-          _.getOrElse(Seq.empty))).rep).map {
+        conditional ~ ("|" ~ identifier ~ ("(" ~ ((identifier ~ "=").? ~ expression)
+          .rep(sep = ",") ~ ")").?.map(_.getOrElse(Seq.empty))).rep
+      ).map {
         case (lhs, chunks) =>
           chunks.foldLeft(lhs) {
             case (l, (id, params)) =>

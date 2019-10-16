@@ -12,5 +12,6 @@ lazy val root = (project in file("."))
       "com.github.mpilquist" %% "simulacrum" % "0.19.0",
       "org.scalactic" %% "scalactic" % "3.0.8",
       "org.scalatest" %% "scalatest" % "3.0.8" % Test
-    )
+    ),
+    scalafmtOnCompile := true
   )

@@ -54,8 +54,8 @@ object TemplateParser {
         (`if` ~ partial)
           .map(TemplateNode.If.ConditionalContent.tupled) ~ (elif ~ partial)
           .map(TemplateNode.If.ConditionalContent.tupled)
-          .rep ~ (`else` ~ partial).? ~ endIf)
-        .map {
+          .rep ~ (`else` ~ partial).? ~ endIf
+      ).map {
           case (x, xs, e) =>
             TemplateNode.If(x +: xs, e)
         }
@@ -67,7 +67,8 @@ object TemplateParser {
         import SingleLineWhitespace._
         P(
           openTag ~ "for" ~ Parser.identifier
-            .rep(1, sep = ",") ~ "in" ~ Parser.expression ~ closeTag)
+            .rep(1, sep = ",") ~ "in" ~ Parser.expression ~ closeTag
+        )
       }
 
       def close = {
@@ -142,7 +143,8 @@ object TemplateParser {
         P(
           openTag ~ "macro" ~ Parser.identifier ~ "(" ~ (Parser.identifier ~ ("=" ~ Parser.expression).?)
             .rep(sep = ",")
-            .map(_.toMap) ~ ")" ~ closeTag)
+            .map(_.toMap) ~ ")" ~ closeTag
+        )
       }
 
       def close = {
@@ -160,7 +162,8 @@ object TemplateParser {
         import SingleLineWhitespace._
         P(
           openTag ~ "call" ~ Parser.identifier ~ "(" ~ ((Parser.identifier ~ "=").? ~ Parser.expression)
-            .rep(sep = ",") ~ ")" ~ closeTag)
+            .rep(sep = ",") ~ ")" ~ closeTag
+        )
       }
 
       def close = {
@@ -187,8 +190,8 @@ object TemplateParser {
       import SingleLineWhitespace._
       P(
         openTag ~ "from" ~ Parser.expression ~ "import" ~ (Parser.identifier ~ ("as" ~ Parser.identifier).?)
-          .rep(1, sep = ",") ~ closeTag)
-        .map(TemplateNode.From.tupled)
+          .rep(1, sep = ",") ~ closeTag
+      ).map(TemplateNode.From.tupled)
     }
 
     def blockTag = {
@@ -214,7 +217,8 @@ object TemplateParser {
         import SingleLineWhitespace._
         P(
           openTag ~ "filter" ~ Parser.identifier ~ ("(" ~ ((Parser.identifier ~ "=").? ~ Parser.expression)
-            .rep(sep = ",") ~ ")").?.map(_.getOrElse(Seq.empty)) ~ closeTag)
+            .rep(sep = ",") ~ ")").?.map(_.getOrElse(Seq.empty)) ~ closeTag
+        )
       }
 
       def close = {
@@ -228,7 +232,9 @@ object TemplateParser {
     }
 
     def tag: P[TemplateNode.Tag] =
-      P(ifTag | forTag | setTag | verbatimTag | macroTag | callTag | includeTag | importTag | fromTag | blockTag | filterTag)
+      P(
+        ifTag | forTag | setTag | verbatimTag | macroTag | callTag | includeTag | importTag | fromTag | blockTag | filterTag
+      )
 
     import NoWhitespace._
     def literal = {
@@ -261,10 +267,10 @@ object NunjucksWhitespace {
   // TODO: potentially refactor out mutable state
   // TODO: include whitespace rules for inside tags and expressions?
   implicit val whitespace: (ParsingRun[_] => ParsingRun[Unit]) = { implicit ctx =>
-    val close  = "-[}#%]}"
-    val open   = "\\{[{#%]-"
-    val input  = ctx.input
-    var index  = ctx.index
+    val close = "-[}#%]}"
+    val open  = "\\{[{#%]-"
+    val input = ctx.input
+    var index = ctx.index
     if (input.slice(index - 3, index).matches(close)) {
       while (input.isReachable(index) &&
              (input(index) match {

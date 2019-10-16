@@ -3,10 +3,7 @@ package wolfendale.nunjucks
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, MustMatchers}
 
-class EqualitySpec
-    extends FreeSpec
-    with MustMatchers
-    with TableDrivenPropertyChecks {
+class EqualitySpec extends FreeSpec with MustMatchers with TableDrivenPropertyChecks {
 
   import wolfendale.nunjucks.expression.runtime.Value._
 

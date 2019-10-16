@@ -54,13 +54,16 @@ final case class ChildFrame(values: Map[String, Value], parent: Frame) extends F
 
   override def set(key: String, value: Value, resolveUp: Boolean): ChildFrame =
     if (resolveUp) {
-      resolve(key).filterNot(_ == this).map {
-        case _: RootFrame =>
-          // this case is strange
-          Frame(values + (key -> value), parent)
-        case _ =>
-          Frame(values, parent.set(key, value, resolveUp = true))
-      }.getOrElse(Frame(values + (key -> value), parent))
+      resolve(key)
+        .filterNot(_ == this)
+        .map {
+          case _: RootFrame =>
+            // this case is strange
+            Frame(values + (key -> value), parent)
+          case _ =>
+            Frame(values, parent.set(key, value, resolveUp = true))
+        }
+        .getOrElse(Frame(values + (key -> value), parent))
     } else {
       Frame(values + (key -> value), parent)
     }

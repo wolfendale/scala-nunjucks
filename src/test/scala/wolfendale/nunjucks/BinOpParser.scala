@@ -35,9 +35,8 @@ class BinOpParser extends FreeSpec with MustMatchers {
     def recurBinop[_: P](previousTerm: => P[AST], operators: => P[AST => AST]): P[AST] = {
 
       val combine = (first: AST, rest: Seq[AST => AST]) =>
-        rest.tail.foldLeft(rest.head(first)) {
-          (m, n) =>
-            n(m)
+        rest.tail.foldLeft(rest.head(first)) { (m, n) =>
+          n(m)
         }
 
       P((previousTerm ~ operators.rep(1)).map[AST](combine.tupled) | previousTerm)
@@ -48,7 +47,7 @@ class BinOpParser extends FreeSpec with MustMatchers {
 
     def expression[_: P]: P[AST] = addition
 
-    def number[_:P]: P[Num] = P(CharPred(_.isDigit).rep.!).map(str => Num(str.toInt))
+    def number[_: P]: P[Num] = P(CharPred(_.isDigit).rep.!).map(str => Num(str.toInt))
 
     def multiplication[_: P] = {
       def multiply: P[AST => Multiply] = binop("*", number, Multiply)
@@ -56,7 +55,7 @@ class BinOpParser extends FreeSpec with MustMatchers {
     }
 
     def addition[_: P] = {
-      def plus: P[AST => Plus] = binop("+", multiplication, Plus)
+      def plus: P[AST => Plus]   = binop("+", multiplication, Plus)
       def minus: P[AST => Minus] = binop("-", multiplication, Minus)
       recurBinop(multiplication, P(plus | minus))
     }

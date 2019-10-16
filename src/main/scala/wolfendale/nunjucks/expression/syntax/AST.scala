@@ -17,15 +17,15 @@ object AST {
       value
   }
 
-  case object Null extends Primitive(Value.Null)
+  case object Null      extends Primitive(Value.Null)
   case object Undefined extends Primitive(Value.Undefined)
 
   sealed trait Bool extends Expr
-  case object True extends Primitive(Value.True) with Bool
+  case object True  extends Primitive(Value.True) with Bool
   case object False extends Primitive(Value.False) with Bool
 
-  sealed trait Numeric extends Expr
-  case object Infinity extends Primitive(Value.Infinity) with Numeric
+  sealed trait Numeric                   extends Expr
+  case object Infinity                   extends Primitive(Value.Infinity) with Numeric
   final case class Number(value: Double) extends Primitive(Value.Number(value)) with Numeric
 
   final case class Str(value: String) extends Primitive(Value.Str(value))
@@ -186,8 +186,7 @@ object AST {
       left.eval(context) ** right.eval(context)
   }
 
-  final case class Call(expr: Expr, args: Seq[(Option[Identifier], Expr)])
-      extends Expr {
+  final case class Call(expr: Expr, args: Seq[(Option[Identifier], Expr)]) extends Expr {
 
     override def eval(context: Context): Value = {
 
@@ -209,7 +208,9 @@ object AST {
           Value.Function.Parameter(k.map(_.value), v.eval(context))
       })
 
-      context.getFilter(identifier.value).map(_.apply(context.scope, expr.eval(context), parameters))
+      context
+        .getFilter(identifier.value)
+        .map(_.apply(context.scope, expr.eval(context), parameters))
         .getOrElse(throw new RuntimeException(s"No filter with name: ${identifier.value}"))
     }
   }
