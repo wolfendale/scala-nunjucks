@@ -433,6 +433,8 @@ object Value {
     override def toStr: Str =
       Str(if (value.isWhole) value.toLong.toString else value.toString)
 
+    override def toString: String = toStr.toString
+
     override def toBool: Bool =
       if (value == 0) False else True
 
@@ -453,6 +455,8 @@ object Value {
 
     override def toStr: Str =
       this
+
+    override def toString: String = value
 
     override def toBool: Bool =
       if (value.isEmpty) False else True

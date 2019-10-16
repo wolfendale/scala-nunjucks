@@ -505,6 +505,14 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
     environment.render("{{ -5 }}") mustEqual "-5"
   }
 
+  "should compile arrays" in {
+    environment.render("{{ [1,2,3] }}") mustEqual "1,2,3"
+  }
+
+  "should compile arrays of functions" in {
+    environment.render("{{ [1 + 1, 2 * 2, 3 ** 3] }}") mustEqual "2,4,27"
+  }
+
   "should compile comparison operators" in {
 
     environment.render("{% if 3 < 4 %}yes{% endif %}") mustEqual "yes"
