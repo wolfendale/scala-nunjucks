@@ -134,12 +134,12 @@ object Parser {
     def filterCall =
       P(
         conditional ~ ("|" ~ identifier ~ ("(" ~ ((identifier ~ "=").? ~ expression).rep(sep = ",") ~ ")").?.map(
-          _.getOrElse(Seq.empty))).rep
+          _.getOrElse(Seq.empty))).rep ~ ("if" ~ expression ~ ("else" ~ expression).?).?.map(_.map(AST.FilterCall.Condition.tupled))
       ).map {
-        case (lhs, chunks) =>
+        case (lhs, chunks, condition) =>
           chunks.foldLeft(lhs) {
             case (l, (id, params)) =>
-              AST.FilterCall(l, id, params)
+              AST.FilterCall(l, id, params, condition)
           }
       }
 

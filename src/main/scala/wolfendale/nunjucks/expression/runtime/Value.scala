@@ -4,6 +4,7 @@ import wolfendale.nunjucks.Frame
 import wolfendale.nunjucks.expression.syntax.AST
 
 import scala.annotation.tailrec
+import scala.language.implicitConversions
 import scala.util.Try
 
 sealed abstract class Value {
@@ -140,8 +141,15 @@ object Value {
   }
 
   object Bool {
+
     def apply(bool: Boolean): Bool =
       if (bool) Value.True else Value.False
+
+    implicit def toBoolean(bool: Bool): Boolean =
+      bool match {
+        case True  => true
+        case False => false
+      }
   }
 
   case object True extends Bool {

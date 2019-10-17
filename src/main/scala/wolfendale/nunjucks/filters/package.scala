@@ -18,7 +18,7 @@ package object filters {
   val batch: Filter = Filter { (arr, args) =>
     args.get(0).map(_.toNumeric).getOrElse(Number(0)) match {
       case Number(size) =>
-        Arr(arr.toArr.values.sliding(size.toInt).toList.map(Arr(_)))
+        Arr(arr.toArr.values.sliding(size.toInt, size.toInt).toList.map(Arr(_)))
       case Infinity    => arr.toArr
       case `-Infinity` => arr.toArr
       case NaN         => arr.toArr
