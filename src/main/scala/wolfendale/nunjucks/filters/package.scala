@@ -60,6 +60,10 @@ package object filters {
     string.toStr
   }
 
+  val safe: Filter = Filter {
+    _.toStr.copy(safe = true)
+  }
+
   lazy val defaults: Map[String, Filter] = Map(
     "abs"        -> abs,
     "batch"      -> batch,
@@ -68,6 +72,7 @@ package object filters {
     "lower"      -> lower,
     "trim"       -> trim,
     "first"      -> first,
-    "string"     -> string
+    "string"     -> string,
+    "safe"       -> safe
   )
 }
