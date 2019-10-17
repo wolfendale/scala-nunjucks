@@ -180,8 +180,8 @@ object Value {
 
     override def `==`(other: Value): Bool =
       other match {
-        case False | Number(0) | Str("") => True
-        case _                           => False
+        case False | Number(0) | Str("", _) => True
+        case _                              => False
       }
 
     override def ||(other: Value): Bool =
@@ -468,7 +468,7 @@ object Value {
       this
   }
 
-  final case class Str(value: String) extends Value {
+  final case class Str(value: String, safe: Boolean = false) extends Value {
 
     override def `==`(other: Value): Bool =
       if (value == other.toStr.value) True else False
@@ -492,6 +492,25 @@ object Value {
         case "-Infinity" => -Infinity
         case _           => Try(value.toDouble).map(Number).getOrElse(NaN)
       }
+
+    def escaped: Str = copy(
+      value = Str.escapeRegex.replaceAllIn(value, Str.escapeMap),
+      safe = true
+    )
+  }
+
+  object Str {
+
+    import scala.util.matching.Regex.Match
+
+    private val escapeRegex = "[&\"'<>]".r
+    private val escapeMap = PartialFunction[Match, String] {
+      case Match("&")  => "&amp;"
+      case Match("\"") => "&quot;"
+      case Match("'")  => "&#39;"
+      case Match("<")  => "&lt;"
+      case Match(">")  => "&gt;"
+    }
   }
 
   final case class Arr(values: Seq[Value]) extends Value {
@@ -705,7 +724,5 @@ object Value {
     final case object MultiLine extends RegexFlag(AST.RegexFlag.MultiLine.flag)
 
     final case object Sticky extends RegexFlag(AST.RegexFlag.Sticky.flag)
-
   }
-
 }

@@ -46,7 +46,7 @@ package object filters {
       case arr: Arr =>
         arr.destructure.headOption.getOrElse(Undefined)
       case str: Str =>
-        str.value.headOption.map(_.toString).map(Str.apply).getOrElse(Undefined)
+        str.value.headOption.map(_.toString).map(Str(_)).getOrElse(Undefined)
       case Infinity | `-Infinity` =>
         Undefined
       case Value.Obj(_) | Number(_) | Value.True | Value.False | NaN =>
@@ -60,6 +60,10 @@ package object filters {
     string.toStr
   }
 
+  val safe: Filter = Filter {
+    _.toStr.copy(safe = true)
+  }
+
   lazy val defaults: Map[String, Filter] = Map(
     "abs"        -> abs,
     "batch"      -> batch,
@@ -68,6 +72,7 @@ package object filters {
     "lower"      -> lower,
     "trim"       -> trim,
     "first"      -> first,
-    "string"     -> string
+    "string"     -> string,
+    "safe"       -> safe
   )
 }
