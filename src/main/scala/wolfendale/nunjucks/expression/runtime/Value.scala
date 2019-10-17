@@ -1,6 +1,7 @@
 package wolfendale.nunjucks.expression.runtime
 
 import wolfendale.nunjucks.Frame
+import wolfendale.nunjucks.expression.syntax.AST
 
 import scala.annotation.tailrec
 import scala.util.Try
@@ -16,6 +17,7 @@ sealed abstract class Value {
 
   final def `===`(other: Value): Bool =
     if (this == other) True else False
+
   final def `!==`(other: Value): Bool =
     !(this `===` other)
 
@@ -34,13 +36,14 @@ sealed abstract class Value {
   def unary_! : Bool = !toBool
 
   def unary_- : Numeric = -toNumeric
+
   def unary_+ : Numeric = toNumeric
 
   def +(other: Value): Value =
     other match {
       case Null | Undefined | _: Bool | _: Numeric =>
         toNumeric + other
-      case _: Str | _: Arr | _: Obj | _: Function =>
+      case _: Str | _: Arr | _: Obj | _: Function | _: Regex =>
         toStr + other
     }
 
@@ -83,7 +86,9 @@ sealed abstract class Value {
   def destructure: Seq[Value] = Seq(this)
 
   def toStr: Str
+
   def toBool: Bool
+
   def toNumeric: Numeric
 }
 
@@ -132,6 +137,11 @@ object Value {
   sealed abstract class Bool extends Value {
 
     final override def toBool: Bool = this
+  }
+
+  object Bool {
+    def apply(bool: Boolean): Bool =
+      if (bool) Value.True else Value.False
   }
 
   case object True extends Bool {
@@ -197,8 +207,8 @@ object Value {
 
     override def +(other: Value): Value =
       other match {
-        case _: Str | _: Arr | _: Obj => toStr + other
-        case _                        => this
+        case _: Str | _: Arr | _: Obj | _: Regex => toStr + other
+        case _                                   => this
       }
 
     override def *(other: Value): Numeric =
@@ -246,12 +256,13 @@ object Value {
         case _              => True
       }
 
+    @tailrec
     override def +(other: Value): Value =
       other match {
-        case NaN | `-Infinity`        => NaN
-        case _: Numeric               => Infinity
-        case _: Str | _: Arr | _: Obj => toStr + other
-        case _                        => this + other.toNumeric
+        case NaN | `-Infinity`                   => NaN
+        case _: Numeric                          => Infinity
+        case _: Str | _: Arr | _: Obj | _: Regex => toStr + other
+        case _                                   => this + other.toNumeric
       }
 
     override def *(other: Value): Numeric =
@@ -316,10 +327,10 @@ object Value {
     @tailrec
     override def +(other: Value): Value =
       other match {
-        case NaN | Infinity           => NaN
-        case _: Numeric               => -Infinity
-        case _: Str | _: Arr | _: Obj => toStr + other
-        case _                        => this + other.toNumeric
+        case NaN | Infinity                      => NaN
+        case _: Numeric                          => -Infinity
+        case _: Str | _: Arr | _: Obj | _: Regex => toStr + other
+        case _                                   => this + other.toNumeric
       }
 
     override def *(other: Value): Numeric =
@@ -390,12 +401,12 @@ object Value {
     @tailrec
     override def +(other: Value): Value =
       other match {
-        case NaN                      => NaN
-        case Infinity                 => Infinity
-        case `-Infinity`              => -Infinity
-        case Number(o)                => Number(value + o)
-        case _: Str | _: Obj | _: Arr => toStr + other
-        case _                        => this + other.toNumeric
+        case NaN                                 => NaN
+        case Infinity                            => Infinity
+        case `-Infinity`                         => -Infinity
+        case Number(o)                           => Number(value + o)
+        case _: Str | _: Obj | _: Arr | _: Regex => toStr + other
+        case _                                   => this + other.toNumeric
       }
 
     override def *(other: Value): Numeric =
@@ -607,5 +618,86 @@ object Value {
       def get(index: Int): Option[Value] =
         parameters.lift(index).map(_.value)
     }
+
   }
+
+  final case class Regex(pattern: String, flagSet: Set[RegexFlag] = Set.empty) extends Value {
+
+    import java.util.regex._
+
+    override def `==`(other: Value): Bool = Bool(eq(other))
+
+    private def source: String = if (this.pattern.isEmpty) "(?:)" else this.pattern
+
+    private def flags: String = flagSet.toSeq.map(_.flag).sorted.mkString
+
+    override def toStr: Str = Value.Str(s"/$source/$flags")
+
+    override def toBool: Bool = Value.True
+
+    override def toNumeric: Numeric = Value.NaN
+
+    private def javaFlagInt(flag: RegexFlag): Int = flag match {
+      case RegexFlag.CaseInsensitive => Pattern.CASE_INSENSITIVE
+      case _                         => 0
+    }
+
+    private lazy val javaRegexMatcher: Pattern = {
+      val javaFlags = flagSet.foldLeft(0)((l, flag) => l | javaFlagInt(flag))
+      Pattern.compile(pattern, javaFlags)
+    }
+
+    def global: Boolean = flagSet.contains(RegexFlag.ApplyGlobally)
+
+    def multiline: Boolean = flagSet.contains(RegexFlag.MultiLine)
+
+    def ignoreCase: Boolean = flagSet.contains(RegexFlag.CaseInsensitive)
+
+    def sticky: Boolean = flagSet.contains(RegexFlag.Sticky)
+
+    //TODO sticky flag (may need a var ...)
+    def testFunction: Value = Value.Function { (_, params) =>
+      val subjectUnderTest = params.get("str", 0)
+
+      // TODO is there an easy way to do case insensitive without using Java?
+      def matchSingleLine(str: String): Boolean = javaRegexMatcher.matcher(str).matches()
+
+      def matchMultiLine(str: String): Boolean =
+        if (multiline) str.split(System.lineSeparator).exists(matchSingleLine)
+        else matchSingleLine(str)
+
+      Bool(subjectUnderTest exists (sut => matchMultiLine(sut.toStr.value)))
+    }
+
+    override def properties: Map[String, Value] = Map(
+      "flags"      -> Str(flags),
+      "global"     -> Bool(global),
+      "ignoreCase" -> Bool(ignoreCase),
+      "multiline"  -> Bool(multiline),
+      "test"       -> testFunction,
+      "sticky"     -> Bool(sticky),
+      "source"     -> Str(source)
+    )
+  }
+
+  sealed abstract class RegexFlag(val flag: String)
+
+  object RegexFlag {
+    def apply(flag: AST.RegexFlag): RegexFlag = flag match {
+      case AST.RegexFlag.ApplyGlobally   => ApplyGlobally
+      case AST.RegexFlag.CaseInsensitive => CaseInsensitive
+      case AST.RegexFlag.MultiLine       => MultiLine
+      case AST.RegexFlag.Sticky          => Sticky
+    }
+
+    final case object ApplyGlobally extends RegexFlag(AST.RegexFlag.ApplyGlobally.flag)
+
+    final case object CaseInsensitive extends RegexFlag(AST.RegexFlag.CaseInsensitive.flag)
+
+    final case object MultiLine extends RegexFlag(AST.RegexFlag.MultiLine.flag)
+
+    final case object Sticky extends RegexFlag(AST.RegexFlag.Sticky.flag)
+
+  }
+
 }

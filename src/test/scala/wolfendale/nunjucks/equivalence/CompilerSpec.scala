@@ -1296,7 +1296,7 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
 
   "should render regexs" in {
 
-    environment.render("{{ r/name [0-9] \\\\// }}") mustEqual "/name [0-9] \\\\//"
+    environment.render("{{ r/name [0-9] \\// }}") mustEqual "/name [0-9] \\//"
     environment.render("{{ r/x/gi }}") mustEqual "/x/gi"
   }
 

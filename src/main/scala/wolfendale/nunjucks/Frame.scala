@@ -54,13 +54,16 @@ final case class ChildFrame(values: Map[String, Value], parent: Frame) extends F
 
   override def set(key: String, value: Value, resolveUp: Boolean): ChildFrame =
     if (resolveUp) {
-      resolve(key).filterNot(_ == this).map {
-        case _: RootFrame =>
-          // this case is strange
-          Frame(values + (key -> value), parent)
-        case _ =>
-          Frame(values, parent.set(key, value, resolveUp = true))
-      }.getOrElse(Frame(values + (key -> value), parent))
+      resolve(key)
+        .filterNot(_ == this)
+        .map {
+          case _: RootFrame =>
+            // this case is strange
+            Frame(values + (key -> value), parent)
+          case _ =>
+            Frame(values, parent.set(key, value, resolveUp = true))
+        }
+        .getOrElse(Frame(values + (key -> value), parent))
     } else {
       Frame(values + (key -> value), parent)
     }
@@ -75,17 +78,17 @@ final case class ChildFrame(values: Map[String, Value], parent: Frame) extends F
 object Frame {
 
   def apply(values: Map[String, Value]): RootFrame =
-    new RootFrame(values)
+    RootFrame(values)
 
   def apply(values: Value.Obj): RootFrame =
     apply(values.values)
 
   def apply(values: Map[String, Value], parent: Frame): ChildFrame =
-    new ChildFrame(values, parent)
+    ChildFrame(values, parent)
 
   def apply(values: Value.Obj, parent: Frame): ChildFrame =
     apply(values.values, parent)
 
   def empty: RootFrame =
-    new RootFrame(Map.empty)
+    RootFrame(Map.empty)
 }
