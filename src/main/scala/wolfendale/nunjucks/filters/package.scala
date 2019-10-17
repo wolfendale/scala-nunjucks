@@ -18,7 +18,12 @@ package object filters {
   val batch: Filter = Filter { (arr, args) =>
     args.get(0).map(_.toNumeric).getOrElse(Number(0)) match {
       case Number(size) =>
-        Arr(arr.toArr.values.sliding(size.toInt).toList.map(Arr(_)))
+        val paddingChar = args.get(1)
+        val it = arr.toArr.values.iterator.grouped(size.toInt)
+        val groupedArray = paddingChar
+          .map(padding => it.withPadding(padding.toStr))
+          .getOrElse(it).toList.map(Arr(_))
+        Arr(groupedArray)
       case Infinity    => arr.toArr
       case `-Infinity` => arr.toArr
       case NaN         => arr.toArr
