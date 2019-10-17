@@ -224,7 +224,11 @@ object AST {
     }
   }
 
-  final case class FilterCall(expr: Expr, identifier: Identifier, args: Seq[(Option[Identifier], Expr)]) extends Expr {
+  final case class FilterCall(expr: Expr,
+                              identifier: Identifier,
+                              args: Seq[(Option[Identifier], Expr)],
+                              condition: Option[FilterCall.Condition])
+      extends Expr {
 
     override def eval(context: Context): Value = {
 
@@ -233,11 +237,27 @@ object AST {
           Value.Function.Parameter(k.map(_.value), v.eval(context))
       })
 
-      context
+      lazy val filtered = context
         .getFilter(identifier.value)
         .map(_.apply(context.scope, expr.eval(context), parameters))
-        .getOrElse(throw new RuntimeException(s"No filter with name: ${identifier.value}"))
+        .getOrElse(throw new RuntimeException(s"Filter not found: ${identifier.value}"))
+
+      condition.map {
+        condition =>
+          if (condition.condition.eval(context).toBool) {
+            filtered
+          } else {
+            condition.otherValue
+              .map(_.eval(context))
+              .getOrElse(Value.Undefined)
+          }
+      }.getOrElse(filtered)
     }
+  }
+
+  object FilterCall {
+
+    final case class Condition(condition: Expr, otherValue: Option[Expr])
   }
 
   final case class If(body: Expr, condition: Expr, other: Option[Expr]) extends Expr {

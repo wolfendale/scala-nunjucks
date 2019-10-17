@@ -62,7 +62,8 @@ object TemplateNode {
         case Value.Arr(values) =>
           values.map(output).mkString(",")
         case result =>
-          result.toStr.value
+          val output = result.toStr
+          if (output.safe) output.value else output.escaped.value
       }
   }
 
@@ -197,7 +198,7 @@ object TemplateNode {
             Value.Str(
               content.eval
                 .runA(context.setScope(callingScope.set(completeParameters, resolveUp = false)))
-                .value)
+                .value, safe = true)
           }
 
           context.setScope(identifier.value, body, resolveUp = false)
@@ -286,7 +287,7 @@ object TemplateNode {
             result
           }
 
-          Value.Str(partial.eval.runA(context.setScope("super", superFn, resolveUp = false)).value)
+          Value.Str(partial.eval.runA(context.setScope("super", superFn, resolveUp = false)).value, safe = true)
         }
         .toStr
         .value

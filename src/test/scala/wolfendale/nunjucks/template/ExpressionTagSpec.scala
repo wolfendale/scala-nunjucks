@@ -4,11 +4,11 @@ import org.scalatest.{FreeSpec, MustMatchers}
 import wolfendale.nunjucks.ProvidedEnvironment
 import wolfendale.nunjucks.expression.runtime.Value
 
-class ExpressionNodeSpec extends FreeSpec with MustMatchers {
+class ExpressionTagSpec extends FreeSpec with MustMatchers {
 
   val environment = new ProvidedEnvironment()
 
-  "evaluating an expression node" - {
+  "evaluating an expression tag" - {
 
     "must output null as empty" in {
 
@@ -110,6 +110,13 @@ class ExpressionNodeSpec extends FreeSpec with MustMatchers {
       val result = environment.render("{{ {key: 'value'} }}")
 
       result mustEqual "[object Object]"
+    }
+
+    "must output an escaped string" in {
+
+      val result = environment.render("{{ '<div/>' }}")
+
+      result mustEqual "&lt;div/&gt;"
     }
   }
 }
