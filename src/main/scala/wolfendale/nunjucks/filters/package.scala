@@ -56,6 +56,28 @@ package object filters {
     }
   }
 
+  val default: Filter = Filter { (value: Value, args) =>
+    if (!Seq(1,2).contains(args.parameters.size)) {
+      throw new RuntimeException(s"Filter default requires either one argument (default) or two arguments (default, falsy)")
+    }
+
+    val alternative: Value = args.get(0).get
+    val falsy: Bool = args.get(1).map((x: Value) => x.toBool).getOrElse(False)
+
+    falsy match {
+      case True =>
+        value match {
+          case Undefined | False | Null => alternative
+          case value => value
+        }
+      case False =>
+        value match {
+          case Undefined => alternative
+          case value => value
+        }
+    }
+  }
+
   val string: Filter = Filter { string: Value =>
     string.toStr
   }
@@ -72,6 +94,8 @@ package object filters {
     "lower"      -> lower,
     "trim"       -> trim,
     "first"      -> first,
+    "default"    -> default,
+    "d"          -> default,
     "string"     -> string,
     "safe"       -> safe
   )

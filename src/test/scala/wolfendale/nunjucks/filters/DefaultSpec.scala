@@ -25,7 +25,7 @@ class DefaultSpec extends FreeSpec with MustMatchers {
       }
 
       "returns string as is" in {
-        tester.evaluate("'hello' | default(2)") mustEqual Str("Hello")
+        tester.evaluate("'hello' | default(2)") mustEqual Str("hello")
       }
 
       "returns default for undefined" in {
@@ -56,7 +56,7 @@ class DefaultSpec extends FreeSpec with MustMatchers {
       }
 
       "returns string as is" in {
-        tester.evaluate("'hello' | default(2, false)") mustEqual Str("Hello")
+        tester.evaluate("'hello' | default(2, false)") mustEqual Str("hello")
       }
 
       "returns default for undefined" in {
@@ -83,11 +83,11 @@ class DefaultSpec extends FreeSpec with MustMatchers {
       }
 
       "returns default for boolean false" in {
-        tester.evaluate("false | default(2, true)") mustEqual False
+        tester.evaluate("false | default(2, true)") mustEqual Number(2)
       }
 
       "returns string as is" in {
-        tester.evaluate("'hello' | default(2, true)") mustEqual Str("Hello")
+        tester.evaluate("'hello' | default(2, true)") mustEqual Str("hello")
       }
 
       "returns default for undefined" in {
@@ -95,12 +95,16 @@ class DefaultSpec extends FreeSpec with MustMatchers {
       }
 
       "returns default for null" in {
-        tester.evaluate("null | default(1, true)") mustEqual True
+        tester.evaluate("null | default(1, true)") mustEqual Number(1)
       }
 
       "returns default for none" in {
         tester.evaluate("none | default(1, true)") mustEqual Number(1)
       }
+    }
+
+    "should be aliased to 'd'" in {
+      tester.evaluate("1 | d(2)") mustEqual Number(1)
     }
 
   }
