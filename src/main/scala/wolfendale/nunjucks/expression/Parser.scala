@@ -98,7 +98,7 @@ object Parser {
 
       def notIn = P("not " ~ "in").map(_ => AST.BinaryOperator.NotIn)
 
-      binop(addition, P(gt | gte | lt | lte | in | notIn))
+      binop(addition, P(gte | gt | lte | lt | in | notIn))
     }
 
     def equality = {
@@ -110,7 +110,7 @@ object Parser {
 
       def sneq = P("!==").map(_ => AST.BinaryOperator.StrictInequality)
 
-      binop(comparison, P(eq | neq | seq | sneq))
+      binop(comparison, P(sneq | seq | neq | eq))
     }
 
     def and = {
