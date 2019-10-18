@@ -146,7 +146,7 @@ object Parser {
     filterCall
   }
 
-  def `null`[_: P] = P("null").map(_ => AST.Null)
+  def `null`[_: P] = P("null" | "none").map(_ => AST.Null)
 
   def `undefined`[_: P] = P("undefined").map(_ => AST.Undefined)
 
