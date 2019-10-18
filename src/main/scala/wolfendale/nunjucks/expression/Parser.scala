@@ -1,6 +1,6 @@
 package wolfendale.nunjucks.expression
 
-import fastparse.SingleLineWhitespace._
+import fastparse.MultiLineWhitespace._
 import fastparse._
 import wolfendale.nunjucks.expression.syntax.AST
 import wolfendale.nunjucks.expression.syntax.AST.RegexFlag

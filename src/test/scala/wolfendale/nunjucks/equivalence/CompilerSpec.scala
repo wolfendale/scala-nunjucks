@@ -45,7 +45,7 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
     .add("base-set-wraps-block.njk", "{% set somevar %}{% block somevar %}{% endblock %}{% endset %}{{ somevar }}\n")
     .add("base3.njk", "{% block block1 %}<b>Foo</b>{% endblock %}")
     .add("undefined-macro.njk", "{{ undef() }}")
-    .add("filter-block.njk", "may the {% filter replace(\"force\", \"forth\") %}{% block block1 %}bar{% endblock %}{% endfilter %} be with you\n")
+    .add("filter-block.html", "may the {% filter replace(\"force\", \"forth\") %}{% block block1 %}bar{% endblock %}{% endfilter %} be with you\n")
 
   "compiler" - {
 
