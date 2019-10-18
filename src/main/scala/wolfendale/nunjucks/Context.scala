@@ -6,7 +6,8 @@ import wolfendale.nunjucks.expression.runtime.Value
 final case class Context(environment: Environment,
                          scope: Frame = Frame.empty,
                          blocks: Map[String, Vector[TemplateNode.Partial]] = Map.empty,
-                         filters: Map[String, Filter] = wolfendale.nunjucks.filters.defaults) {
+                         filters: Map[String, Filter] = wolfendale.nunjucks.filters.defaults,
+                         path: Option[String] = None) {
 
   def getScope(identifier: String): Value =
     scope.get(identifier)

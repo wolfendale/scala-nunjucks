@@ -17,7 +17,7 @@ object TemplateParser {
 
     def expression = {
 
-      import SingleLineWhitespace._
+      import MultiLineWhitespace._
       P(openExpression ~ Parser.expression ~ closeExpression).map(TemplateNode.Expression)
     }
 

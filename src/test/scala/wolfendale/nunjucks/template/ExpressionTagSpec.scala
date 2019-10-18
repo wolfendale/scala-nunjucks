@@ -118,5 +118,15 @@ class ExpressionTagSpec extends FreeSpec with MustMatchers {
 
       result mustEqual "&lt;div/&gt;"
     }
+
+    "must allow for multiline expressions" in {
+
+      val result = environment.render(
+        """{{ {
+          | foo: 'bar'
+          |}.foo }}""".stripMargin)
+
+      result mustEqual "bar"
+    }
   }
 }

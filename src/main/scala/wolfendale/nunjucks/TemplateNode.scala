@@ -232,7 +232,9 @@ object TemplateNode {
 
     override def eval: State[Context, String] = State.inspect[Context, String] { context =>
       val partial = expr.eval(context).toStr.value
-      context.environment.renderTemplate(partial, context.scope).getOrElse {
+      context.environment.load(partial, context.path).map {
+        _.render.runA(context.copy(path = Loader.resolveSibling(partial, context.path))).value
+      }.getOrElse {
         if (ignoreMissing) ""
         else throw new RuntimeException(s"missing template `$partial`")
       }
@@ -246,11 +248,11 @@ object TemplateNode {
         .modify[Context] { context =>
           val partial = expr.eval(context).toStr.value
           context.environment
-            .importTemplate(partial)
-            .map { scope =>
-              context.setScope(identifier.value, scope.value, resolveUp = false)
-            }
-            .getOrElse(throw new RuntimeException(s"missing template `$partial`"))
+            .load(partial)
+            .map { template =>
+              val scope = template.render.runS(context.copy(path = Loader.resolveSibling(partial, context.path))).value.scope.value
+              context.setScope(identifier.value, scope, resolveUp = false)
+            }.getOrElse(throw new RuntimeException(s"missing template `$partial`"))
         }
         .map(_ => "")
   }
@@ -264,13 +266,13 @@ object TemplateNode {
         .modify[Context] { context =>
           val partial = expr.eval(context).toStr.value
           context.environment
-            .importTemplate(partial)
-            .map { scope =>
-              val values =
-                identifiers.map {
-                  case (key, preferred) =>
-                    preferred.getOrElse(key).value -> scope.get(key.value)
-                }
+            .load(partial, context.path)
+            .map { template =>
+              val scope = template.render.runS(context.copy(path = Loader.resolveSibling(partial, context.path))).value.scope.value
+              val values = identifiers.map {
+                case (key, preferred) =>
+                  preferred.getOrElse(key).value -> scope.get(key.value)
+              }
               context.setScope(values, resolveUp = false)
             }
             .getOrElse(throw new RuntimeException(s"missing template `$partial`"))
@@ -343,7 +345,7 @@ final case class ChildTemplate(parent: expression.syntax.AST.Expr, partial: Opti
     val newContext =
       partial.map(_.eval.runS(context).value).getOrElse(context)
     context.environment
-      .load(parentTemplate)
+      .load(parentTemplate, context.path)
       .map { rootTemplate =>
         rootTemplate.render.runA(newContext).value
       }

@@ -1,5 +1,7 @@
 package wolfendale.nunjucks
 
+import java.nio.file.Paths
+
 import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
 import wolfendale.nunjucks.expression.runtime.Value
 
