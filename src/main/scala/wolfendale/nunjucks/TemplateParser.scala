@@ -49,7 +49,7 @@ object TemplateParser {
         P(openTag ~ "endif" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(
         (`if` ~ partial)
           .map(TemplateNode.If.ConditionalContent.tupled) ~ (elif ~ partial)
@@ -80,7 +80,7 @@ object TemplateParser {
         P(openTag ~ "else" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ (`else` ~ partial).? ~ close).map(TemplateNode.For.tupled)
     }
 
@@ -108,7 +108,7 @@ object TemplateParser {
           P(openTag ~ "endset" ~ closeTag)
         }
 
-        import NunjucksWhitespace._
+        import NoWhitespace._
         P(open ~ partial ~ close)
       }.map(TemplateNode.SetBlock.tupled)
 
@@ -128,7 +128,7 @@ object TemplateParser {
       }
 
       def verbatim(tag: String) = {
-        import NunjucksWhitespace._
+        import NoWhitespace._
         P(open(tag) ~ (!close(tag) ~ AnyChar).rep.! ~ close(tag))
       }
 
@@ -150,7 +150,7 @@ object TemplateParser {
         P(openTag ~ "endmacro" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ close)
     }.map(TemplateNode.Macro.tupled)
 
@@ -168,7 +168,7 @@ object TemplateParser {
         P(openTag ~ "endcall" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ close).map(TemplateNode.Call.tupled)
     }
 
@@ -203,7 +203,7 @@ object TemplateParser {
         P(openTag ~ "endblock" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ close)
         .map(TemplateNode.Block.tupled)
     }
@@ -222,7 +222,7 @@ object TemplateParser {
         P(openTag ~ "endfilter" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ close)
         .map(TemplateNode.Filter.tupled)
     }
@@ -246,7 +246,7 @@ object TemplateParser {
   }
 
   def template[_: P]: P[Template] = {
-    import NunjucksWhitespace._
+    import NoWhitespace._
     def rootTemplate  = P(partial.? ~ End).map(RootTemplate)
     def childTemplate = P(extendsTag.map(_.expr) ~ partial.? ~ End).map(ChildTemplate.tupled)
     def complexTemplate =

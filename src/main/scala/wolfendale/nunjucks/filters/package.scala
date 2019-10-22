@@ -31,19 +31,19 @@ package object filters {
   }
 
   val capitalize: Filter = Filter { string =>
-    Str(string.toStr.value.capitalize)
+    mapString(string, _.toLowerCase.capitalize)
   }
 
   val upper: Filter = Filter { string =>
-    Str(string.toStr.value.toUpperCase)
+    mapString(string, _.toUpperCase)
   }
 
   val lower: Filter = Filter { string =>
-    Str(string.toStr.value.toLowerCase)
+    mapString(string, _.toLowerCase)
   }
 
   val trim: Filter = Filter { string: Value =>
-    Str(string.toStr.value.trim)
+    mapString(string, _.trim)
   }
 
   val first: Filter = Filter {
@@ -105,4 +105,9 @@ package object filters {
     "safe"       -> safe,
     "indent"     -> noop
   )
+
+  private def mapString(value: Value, f: String => String): Value.Str = {
+    val string = value.toStr
+    string.copy(value = f(string.value))
+  }
 }

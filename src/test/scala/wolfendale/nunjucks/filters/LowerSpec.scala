@@ -13,5 +13,10 @@ class LowerSpec extends FreeSpec with MustMatchers {
 
       environment.render("""{{ "fOObAr" | lower}}""") mustEqual "foobar"
     }
+
+    "must maintain the safe flag" in {
+
+      environment.render("""{{ "fOO<br/>bAr" | safe | lower }}""") mustEqual "foo<br/>bar"
+    }
   }
 }
