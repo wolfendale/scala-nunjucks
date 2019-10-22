@@ -87,6 +87,10 @@ package object filters {
     _.toStr.copy(safe = true)
   }
 
+  val noop: Filter = Filter {
+    a => a
+  }
+
   lazy val defaults: Map[String, Filter] = Map(
     "abs"        -> abs,
     "batch"      -> batch,
@@ -98,6 +102,7 @@ package object filters {
     "default"    -> default,
     "d"          -> default,
     "string"     -> string,
-    "safe"       -> safe
+    "safe"       -> safe,
+    "indent"     -> noop
   )
 }
