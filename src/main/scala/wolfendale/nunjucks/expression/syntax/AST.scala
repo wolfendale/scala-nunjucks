@@ -1,10 +1,14 @@
 package wolfendale.nunjucks.expression.syntax
 
+import cats._
+import cats.data._
+import cats.implicits._
 import wolfendale.nunjucks.Context
 import wolfendale.nunjucks.expression.runtime.Value
 
 sealed abstract class AST {
-  def eval(context: Context): Value
+
+  def eval: State[Context, Value]
 }
 
 object AST {
@@ -12,8 +16,9 @@ object AST {
   sealed abstract class Expr extends AST
 
   abstract class Primitive(value: Value) extends Expr {
-    override def eval(context: Context): Value =
-      value
+
+    override val eval: State[Context, Value] =
+      State.pure(value)
   }
 
   case object Null extends Primitive(Value.Null)
@@ -36,56 +41,90 @@ object AST {
 
   final case class Arr(values: Vector[Expr]) extends Expr {
 
-    override def eval(context: Context): Value =
-      Value.Arr(values.map(_.eval(context)))
+    override def eval: State[Context, Value] =
+      values
+        .foldLeft(State.pure[Context, Vector[Value]](Vector.empty)) {
+          case (s, v) =>
+            for {
+              rest <- s
+              next <- v.eval
+            } yield rest :+ next
+        }
+        .map(Value.Arr(_))
   }
 
   final case class Obj(entries: Map[String, Expr]) extends Expr {
 
-    override def eval(context: Context): Value =
-      Value.Obj(entries.mapValues(_.eval(context)))
+    override def eval: State[Context, Value] = {
+
+      entries
+        .foldLeft(State.pure[Context, Map[String, Value]](Map.empty)) {
+          case (s, (k, v)) =>
+            for {
+              rest <- s
+              next <- v.eval
+            } yield rest + (k -> next)
+        }
+        .map(Value.Obj(_))
+    }
   }
 
   final case class Identifier(value: String) extends Expr {
 
-    override def eval(context: Context): Value =
-      context.get(value)
+    override def eval: State[Context, Value] =
+      State.inspect { context =>
+        context.get(value)
+      }
   }
 
   final case class Access(expr: Expr, identifier: Identifier) extends Expr {
 
-    override def eval(context: Context): Value =
-      expr.eval(context) access identifier.value
+    override def eval: State[Context, Value] =
+      for {
+        value <- expr.eval
+      } yield value.access(identifier.value)
   }
 
   final case class ComputedAccess(expr: Expr, identifier: Expr) extends Expr {
 
-    override def eval(context: Context): Value =
-      expr.eval(context) access identifier.eval(context).toStr.value
+    override def eval: State[Context, Value] =
+      for {
+        value      <- expr.eval
+        identifier <- identifier.eval
+      } yield value.access(identifier.toStr.value)
   }
 
   final case class UnaryMinus(operand: Expr) extends Expr {
 
-    override def eval(context: Context): Value =
-      -operand.eval(context)
+    override def eval: State[Context, Value] =
+      for {
+        value <- operand.eval
+      } yield -value
   }
 
   final case class UnaryPlus(operand: Expr) extends Expr {
 
-    override def eval(context: Context): Value =
-      +operand.eval(context)
+    override def eval: State[Context, Value] =
+      for {
+        value <- operand.eval
+      } yield +value
   }
 
   final case class Not(operand: Expr) extends Expr {
 
-    override def eval(context: Context): Value =
-      !operand.eval(context)
+    override def eval: State[Context, Value] =
+      for {
+        value <- operand.eval
+      } yield !value
   }
 
   final case class BinaryOperator(operator: BinaryOperator.Operation, left: Expr, right: Expr) extends Expr {
 
-    override def eval(context: Context): Value =
-      operator.eval(left.eval(context), right.eval(context))
+    override def eval: State[Context, Value] =
+      for {
+        left  <- left.eval
+        right <- right.eval
+      } yield operator.eval(left, right)
   }
 
   object BinaryOperator {
@@ -213,14 +252,32 @@ object AST {
 
   final case class Call(expr: Expr, args: Seq[(Option[Identifier], Expr)]) extends Expr {
 
-    override def eval(context: Context): Value = {
+//    override def eval(context: Context): Value = {
+//
+//      val parameters = Value.Function.Parameters(args.map {
+//        case (k, v) =>
+//          Value.Function.Parameter(k.map(_.value), v.eval(context))
+//      })
+//
+//      expr.eval(context)(context.frame.get, parameters)
+//    }
+    override def eval: State[Context, Value] = {
 
-      val parameters = Value.Function.Parameters(args.map {
-        case (k, v) =>
-          Value.Function.Parameter(k.map(_.value), v.eval(context))
-      })
+      val parameters = args.foldLeft(State.pure[Context, Vector[Value.Function.Parameter]](Vector.empty)) {
+        case (s, (i, v)) =>
+          for {
+            rest <- s
+            next <- v.eval
+          } yield rest :+ Value.Function.Parameter(i.map(_.value), next)
+      }.map(Value.Function.Parameters(_))
 
-      expr.eval(context)(context.frame.get, parameters)
+      for {
+        fn     <- expr.eval
+        params <- parameters
+        result <- State.inspect[Context, Value] { context =>
+          fn(context.frame.get, params)
+        }
+      } yield result
     }
   }
 
@@ -230,28 +287,36 @@ object AST {
                               condition: Option[FilterCall.Condition])
       extends Expr {
 
-    override def eval(context: Context): Value = {
+    override def eval: State[Context, Value] = {
 
-      val parameters = Value.Function.Parameters(args.map {
-        case (k, v) =>
-          Value.Function.Parameter(k.map(_.value), v.eval(context))
-      })
+      lazy val parameters = args.foldLeft(State.pure[Context, Vector[Value.Function.Parameter]](Vector.empty)) {
+        case (s, (i, v)) =>
+          for {
+            rest <- s
+            next <- v.eval
+          } yield rest :+ Value.Function.Parameter(i.map(_.value), next)
+      }.map(Value.Function.Parameters(_))
 
-      lazy val filtered = context
-        .filters.get(identifier.value)
-        .map(_.apply(context.frame.get, expr.eval(context), parameters))
-        .getOrElse(throw new RuntimeException(s"Filter not found: ${identifier.value}"))
+      lazy val filtered = for {
+        value  <- expr.eval
+        params <- parameters
+        result <- State.inspect[Context, Value] { context =>
+          context.filters.get(identifier.value)
+            .map(_.apply(context.frame.get, value, params))
+            .getOrElse(throw new RuntimeException(s"Filter not found: ${identifier.value}"))
+        }
+      } yield result
 
-      condition.map {
-        condition =>
-          if (condition.condition.eval(context).toBool) {
-            filtered
-          } else {
-            condition.otherValue
-              .map(_.eval(context))
-              .getOrElse(Value.Undefined)
-          }
-      }.getOrElse(filtered)
+      condition
+        .map { condition =>
+          Monad[State[Context, *]].ifM(condition.condition.eval.map(_.toBool))(
+            ifTrue = filtered,
+            ifFalse = condition.otherValue
+              .map(_.eval)
+              .getOrElse(State.pure[Context, Value](Value.Undefined))
+          )
+        }
+        .getOrElse(filtered)
     }
   }
 
@@ -262,48 +327,50 @@ object AST {
 
   final case class If(body: Expr, condition: Expr, other: Option[Expr]) extends Expr {
 
-    override def eval(context: Context): Value =
-      if (condition.eval(context) `==` Value.True) {
-        body.eval(context)
-      } else {
-        other.map(_.eval(context)).getOrElse(Value.Undefined)
-      }
+    override def eval: State[Context, Value] =
+      Monad[State[Context, *]].ifM(condition.eval.map(_.toBool))(
+        ifTrue = body.eval,
+        ifFalse = other.map(_.eval).getOrElse(State.pure(Value.Undefined))
+      )
   }
 
   final case class In(item: Expr, container: Expr) extends Expr {
 
-    override def eval(context: Context): Value = {
-      container.eval(context) match {
-        case a: Value.Arr =>
-          if (a.values.exists(i => (i `===` item.eval(context)) == Value.True)) Value.True else Value.False
-        case o: Value.Obj =>
-          if (o.values.keys.toList.contains(item.eval(context).toStr.value)) Value.True else Value.False
-        case s: Value.Str =>
-          if (s.value.contains(item.eval(context).toStr.value)) Value.True else Value.False
-        case o =>
-          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
-      }
+    override def eval: State[Context, Value] = for {
+      container <- container.eval
+      item <- item.eval
+    } yield container match {
+      case a: Value.Arr =>
+        Value.Bool(a.values.exists(i => i `===` item))
+      case o: Value.Obj =>
+        Value.Bool(o.values.keys.toList.contains(item.toStr.value))
+      case s: Value.Str =>
+        Value.Bool(s.value.contains(item.toStr.value))
+      case o =>
+        throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
     }
   }
 
   final case class NotIn(item: Expr, container: Expr) extends Expr {
 
-    override def eval(context: Context): Value = {
-      container.eval(context) match {
-        case a: Value.Arr =>
-          if (a.values.exists(i => (i `===` item.eval(context)) == Value.True)) Value.False else Value.True
-        case o: Value.Obj =>
-          if (o.values.keys.toList.contains(item.eval(context).toStr.value)) Value.False else Value.True
-        case s: Value.Str =>
-          if (s.value.contains(item.eval(context).toStr.value)) Value.False else Value.True
-        case o =>
-          throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
-      }
+    override def eval: State[Context, Value] = for {
+      container <- container.eval
+      item <- item.eval
+    } yield container match {
+      case a: Value.Arr =>
+        !Value.Bool(a.values.exists(i => i `===` item))
+      case o: Value.Obj =>
+        !Value.Bool(o.values.keys.toList.contains(item.toStr.value))
+      case s: Value.Str =>
+        !Value.Bool(s.value.contains(item.toStr.value))
+      case o =>
+        throw new RuntimeException(s"cannot check contents of ${o.toStr.value}")
     }
   }
 
   final case class Regex(pattern: String, flags: Set[RegexFlag] = Set.empty) extends Expr {
-    override def eval(context: Context): Value = Value.Regex(pattern, flags.map(Value.RegexFlag.apply))
+    override def eval: State[Context, Value] =
+      State.pure(Value.Regex(pattern, flags.map(Value.RegexFlag.apply)))
   }
 
   sealed abstract class RegexFlag(val flag: String)
