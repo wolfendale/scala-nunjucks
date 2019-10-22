@@ -1,6 +1,7 @@
 package wolfendale.nunjucks.expression.runtime
 
-import wolfendale.nunjucks.Frame
+import cats.data.State
+import wolfendale.nunjucks.{Context, Frame}
 import wolfendale.nunjucks.expression.syntax.AST
 
 import scala.annotation.tailrec
@@ -78,7 +79,7 @@ sealed abstract class Value {
   def access(identifier: String): Value =
     properties.getOrElse(identifier, Value.Undefined)
 
-  def apply(scope: Frame, args: Function.Parameters): Value =
+  def apply(args: Function.Parameters): State[Context, Value] =
     throw new RuntimeException(s"unable to call $this")
 
   def isDefined: Boolean = true
@@ -606,7 +607,7 @@ object Value {
     def empty: Obj = apply()
   }
 
-  final case class Function(fn: (Frame, Function.Parameters) => Value) extends Value {
+  final case class Function(fn: Function.Parameters => State[Context, Value]) extends Value {
 
     override def `==`(other: Value): Bool =
       this `===` other
@@ -620,8 +621,8 @@ object Value {
     override def toNumeric: Numeric =
       NaN
 
-    override def apply(scope: Frame, args: Function.Parameters): Value =
-      fn(scope, args)
+    override def apply(args: Function.Parameters): State[Context, Value] =
+      fn(args)
   }
 
   object Function {
@@ -686,7 +687,7 @@ object Value {
     def sticky: Boolean = flagSet.contains(RegexFlag.Sticky)
 
     //TODO sticky flag (may need a var ...)
-    def testFunction: Value = Value.Function { (_, params) =>
+    def testFunction: Value = Value.Function { params =>
       val subjectUnderTest = params.get("str", 0)
 
       // TODO is there an easy way to do case insensitive without using Java?
@@ -696,7 +697,7 @@ object Value {
         if (multiline) str.split(System.lineSeparator).exists(matchSingleLine)
         else matchSingleLine(str)
 
-      Bool(subjectUnderTest exists (sut => matchMultiLine(sut.toStr.value)))
+      State.pure(Bool(subjectUnderTest exists (sut => matchMultiLine(sut.toStr.value))))
     }
 
     override def properties: Map[String, Value] = Map(

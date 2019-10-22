@@ -274,9 +274,7 @@ object AST {
       for {
         fn     <- expr.eval
         params <- parameters
-        result <- State.inspect[Context, Value] { context =>
-          fn(context.frame.get, params)
-        }
+        result <- fn(params)
       } yield result
     }
   }

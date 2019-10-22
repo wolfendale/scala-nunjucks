@@ -170,28 +170,31 @@ object TemplateNode {
     override def eval: State[Context, String] =
       State
         .modify[Context] { context =>
-          val body = Value.Function { (callingScope, parameters) =>
-            val defaultArguments = args.flatMap {
-              case (id, value) =>
-                value.map(id.value -> _.eval.runA(context).value)
+          val body = Value.Function { parameters =>
+            State.inspect[Context, Value] { callingContext =>
+
+              val defaultArguments = args.flatMap {
+                case (id, value) =>
+                  value.map(id.value -> _.eval.runA(context).value)
+              }
+
+              val byNameParameters = parameters.parameters.toList
+                .mapFilter(param => param.name.map(_ -> param.value))
+                .toMap
+
+              val positionalParameters = args.keys
+                .map(_.value)
+                .filterNot(byNameParameters.isDefinedAt)
+                .zip(parameters.parameters.toList.mapFilter(param => if (param.name.isEmpty) Some(param.value) else None))
+
+              val completeParameters =
+                (defaultArguments ++ byNameParameters ++ positionalParameters).toList
+
+              Value.Str(content.eval
+                .runA(callingContext.frame.set(completeParameters, resolveUp = false))
+                .value,
+                safe = true)
             }
-
-            val byNameParameters = parameters.parameters.toList
-              .mapFilter(param => param.name.map(_ -> param.value))
-              .toMap
-
-            val positionalParameters = args.keys
-              .map(_.value)
-              .filterNot(byNameParameters.isDefinedAt)
-              .zip(parameters.parameters.toList.mapFilter(param => if (param.name.isEmpty) Some(param.value) else None))
-
-            val completeParameters =
-              (defaultArguments ++ byNameParameters ++ positionalParameters).toList
-
-            Value.Str(content.eval
-                        .runA(context.frame.set(callingScope.set(completeParameters, resolveUp = false)))
-                        .value,
-                      safe = true)
           }
 
           context.set(identifier.value, body, resolveUp = false)
@@ -205,8 +208,8 @@ object TemplateNode {
       extends Tag {
 
     override def eval: State[Context, String] = State.inspect[Context, String] { context =>
-      val body = Value.Function { (scope, _) =>
-        Value.Str(partial.eval.runA(context.frame.set(scope)).value)
+      val body = Value.Function { _ =>
+        partial.eval.map(Value.Str(_))
       }
 
       val resolvedParameters = Value.Function.Parameters(parameters.map {
@@ -215,7 +218,8 @@ object TemplateNode {
       })
 
       context.frame
-        .get(identifier.value)(context.frame.set("caller", body, resolveUp = false).frame.get, resolvedParameters)
+        .get(identifier.value)(resolvedParameters).runA(context.frame.set("caller", body, resolveUp = false))
+        .value
         .toStr
         .value
     }
@@ -313,8 +317,8 @@ object TemplateNode {
     override def eval: State[Context, String] = State { context =>
       val rendered = (partial +: context.blocks.get(identifier.value))
         .foldLeft[Value](Value.Null) { (result, partial) =>
-          val superFn = Value.Function { (_, _) =>
-            result
+          val superFn = Value.Function { _ =>
+            State.pure[Context, Value](result)
           }
 
           Value.Str(partial.eval.runA(context.frame.set("super", superFn, resolveUp = false)).value, safe = true)
