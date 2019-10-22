@@ -49,7 +49,7 @@ object AST {
   final case class Identifier(value: String) extends Expr {
 
     override def eval(context: Context): Value =
-      context.getScope(value)
+      context.get(value)
   }
 
   final case class Access(expr: Expr, identifier: Identifier) extends Expr {
@@ -220,7 +220,7 @@ object AST {
           Value.Function.Parameter(k.map(_.value), v.eval(context))
       })
 
-      expr.eval(context)(context.scope, parameters)
+      expr.eval(context)(context.frame.get, parameters)
     }
   }
 
@@ -238,8 +238,8 @@ object AST {
       })
 
       lazy val filtered = context
-        .getFilter(identifier.value)
-        .map(_.apply(context.scope, expr.eval(context), parameters))
+        .filters.get(identifier.value)
+        .map(_.apply(context.frame.get, expr.eval(context), parameters))
         .getOrElse(throw new RuntimeException(s"Filter not found: ${identifier.value}"))
 
       condition.map {

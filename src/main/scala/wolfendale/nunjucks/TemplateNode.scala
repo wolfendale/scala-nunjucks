@@ -18,10 +18,10 @@ sealed abstract class TemplateNode {
 object TemplateNode {
 
   private def enterScope: State[Context, Unit] =
-    State.modify(_.enterScope)
+    State.modify(_.frame.push)
 
   private def exitScope: State[Context, Unit] =
-    State.modify(_.exitScope)
+    State.modify(_.frame.pop)
 
   final case class Partial(contents: Seq[TemplateNode]) extends TemplateNode {
 
@@ -114,16 +114,15 @@ object TemplateNode {
               "index0"    -> Value.Number(i),
               "revindex"  -> Value.Number(value.length - i),
               "revindex0" -> Value.Number(value.length - i - 1),
-              "first"     -> (if (i == 0) Value.True else Value.False),
-              "last" -> (if (i == value.length - 1) Value.True
-                         else Value.False),
-              "length" -> Value.Number(value.length)
+              "first"     -> Value.Bool(i == 0),
+              "last"      -> Value.Bool(i == value.length - 1),
+              "length"    -> Value.Number(value.length)
             )
 
             val parameters =
               identifiers.map(_.value).zip(subValues.destructure)
 
-            val scope = c.setScope(parameters :+ ("loop" -> loop), resolveUp = false)
+            val scope = c.frame.set(parameters :+ ("loop" -> loop), resolveUp = false)
 
             partial.eval.run(scope).value.map(m + _)
         }
@@ -146,7 +145,7 @@ object TemplateNode {
         .flatMap { value =>
           names
             .foldLeft(State.pure[Context, Unit](())) { (m, n) =>
-              m.flatMap(_ => State.modify(_.setScope(n.value, value, resolveUp = true)))
+              m.flatMap(_ => State.modify(_.set(n.value, value, resolveUp = true)))
             }
             .map(_ => "")
         }
@@ -157,7 +156,7 @@ object TemplateNode {
     override def eval: State[Context, String] = partial.eval.flatMap { content =>
       names
         .foldLeft(State.pure[Context, Unit](())) { (m, n) =>
-          m.flatMap(_ => State.modify(_.setScope(n.value, Value.Str(content), resolveUp = true)))
+          m.flatMap(_ => State.modify(_.frame.set(n.value, Value.Str(content), resolveUp = true)))
         }
         .map(_ => "")
     }
@@ -197,11 +196,11 @@ object TemplateNode {
 
             Value.Str(
               content.eval
-                .runA(context.setScope(callingScope.set(completeParameters, resolveUp = false)))
+                .runA(context.frame.set(callingScope.set(completeParameters, resolveUp = false)))
                 .value, safe = true)
           }
 
-          context.setScope(identifier.value, body, resolveUp = false)
+          context.set(identifier.value, body, resolveUp = false)
         }
         .map(_ => "")
   }
@@ -213,7 +212,7 @@ object TemplateNode {
 
     override def eval: State[Context, String] = State.inspect[Context, String] { context =>
       val body = Value.Function { (scope, _) =>
-        Value.Str(partial.eval.runA(context.setScope(scope)).value)
+        Value.Str(partial.eval.runA(context.frame.set(scope)).value)
       }
 
       val resolvedParameters = Value.Function.Parameters(parameters.map {
@@ -222,7 +221,7 @@ object TemplateNode {
       })
 
       context
-        .getScope(identifier.value)(context.setScope("caller", body, resolveUp = false).scope, resolvedParameters)
+        .frame.get(identifier.value)(context.frame.set("caller", body, resolveUp = false).frame.get, resolvedParameters)
         .toStr
         .value
     }
@@ -232,9 +231,9 @@ object TemplateNode {
 
     override def eval: State[Context, String] = State.inspect[Context, String] { context =>
       val partial = expr.eval(context).toStr.value
-      context.environment.resolveAndLoad(partial, context.path).map {
+      context.environment.resolveAndLoad(partial, context.path.get).map {
         resolvedTemplate =>
-          resolvedTemplate.template.render.runA(context.copy(path = Some(resolvedTemplate.path))).value
+          resolvedTemplate.template.render.runA(context.path.set(Some(resolvedTemplate.path))).value
       }.leftMap { paths =>
         if (ignoreMissing) ""
         else throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
@@ -249,15 +248,14 @@ object TemplateNode {
         .modify[Context] { context =>
           val partial = expr.eval(context).toStr.value
           context.environment
-            .resolveAndLoad(partial, context.path)
+            .resolveAndLoad(partial, context.path.get)
             .map { resolvedTemplate =>
               val scope = resolvedTemplate.template.render.runS {
-                context.copy(
-                  path = Some(resolvedTemplate.path),
-                  scope = if (withContext) context.scope else Frame.empty.enter
-                )
-              }.value.scope.value
-              context.setScope(identifier.value, scope, resolveUp = false)
+                context
+                  .path.set(Some(resolvedTemplate.path))
+                  .frame.set(if (withContext) context.frame.get else Frame.empty)
+              }.value.frame.get.value
+              context.frame.set(identifier.value, scope, resolveUp = false)
             }.leftMap { paths =>
               throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
             }.merge
@@ -274,19 +272,18 @@ object TemplateNode {
         .modify[Context] { context =>
           val partial = expr.eval(context).toStr.value
           context.environment
-            .resolveAndLoad(partial, context.path)
+            .resolveAndLoad(partial, context.path.get)
             .map { resolvedTemplate =>
               val scope = resolvedTemplate.template.render.runS {
-                context.copy(
-                  path = Some(resolvedTemplate.path),
-                  scope = if (withContext) context.scope else Frame.empty.enter
-                )
-              }.value.scope.value
+                context
+                  .path.set(Some(resolvedTemplate.path))
+                  .frame.set(if (withContext) context.frame.get else Frame.empty)
+              }.value.frame.get.value
               val values = identifiers.map {
                 case (key, preferred) =>
                   preferred.getOrElse(key).value -> scope.get(key.value)
               }
-              context.setScope(values, resolveUp = false)
+              context.frame.set(values, resolveUp = false)
             }.leftMap { paths =>
               throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
             }.merge
@@ -297,18 +294,18 @@ object TemplateNode {
   final case class Block(identifier: expression.syntax.AST.Identifier, partial: Partial) extends Tag {
 
     override def eval: State[Context, String] = State { context =>
-      val rendered = (partial +: context.getBlocks(identifier.value))
+      val rendered = (partial +: context.blocks.get(identifier.value))
         .foldLeft[Value](Value.Null) { (result, partial) =>
           val superFn = Value.Function { (_, _) =>
             result
           }
 
-          Value.Str(partial.eval.runA(context.setScope("super", superFn, resolveUp = false)).value, safe = true)
+          Value.Str(partial.eval.runA(context.frame.set("super", superFn, resolveUp = false)).value, safe = true)
         }
         .toStr
         .value
 
-      val newContext = context.setBlock(identifier.value, partial)
+      val newContext = context.blocks.push(identifier.value, partial)
 
       (newContext, rendered)
     }
@@ -329,8 +326,8 @@ object TemplateNode {
                    })
 
                    context
-                     .getFilter(identifier.value)
-                     .map(_.apply(context.scope, expression.runtime.Value.Str(content), parameters))
+                     .filters.get(identifier.value)
+                     .map(_.apply(context.frame.get, expression.runtime.Value.Str(content), parameters))
                      .getOrElse(throw new RuntimeException(s"No filter with name: ${identifier.value}"))
                      .toStr
                      .value
@@ -359,9 +356,9 @@ final case class ChildTemplate(parent: expression.syntax.AST.Expr, partial: Opti
     val newContext =
       partial.map(_.eval.runS(context).value).getOrElse(context)
     context.environment
-      .resolveAndLoad(parentTemplate, context.path)
+      .resolveAndLoad(parentTemplate, context.path.get)
       .map { resolvedTemplate =>
-        resolvedTemplate.template.render.runA(newContext.copy(path = Some(resolvedTemplate.path))).value
+        resolvedTemplate.template.render.runA(newContext.path.set(Some(resolvedTemplate.path))).value
       }.leftMap { paths =>
         throw new RuntimeException(s"missing template `$parentTemplate`, attempted paths: ${paths.mkString(", ")}")
       }.merge

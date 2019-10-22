@@ -91,6 +91,9 @@ sealed abstract class Value {
   def toBool: Bool
 
   def toNumeric: Numeric
+
+  final def orElse(other: Value): Value =
+    if (isDefined) this else other
 }
 
 object Value {
