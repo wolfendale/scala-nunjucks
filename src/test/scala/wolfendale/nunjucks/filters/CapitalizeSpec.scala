@@ -7,11 +7,16 @@ class CapitalizeSpec extends FreeSpec with MustMatchers {
 
   val environment = new ProvidedEnvironment()
 
-  "lower filter" - {
+  "capitalize filter" - {
 
-    "must convert a string to lowercase" in {
+    "must capitalize a string" in {
 
-      environment.render("""{{ "fOObAr" | lower}}""") mustEqual "foobar"
+      environment.render("""{{ "fOObAr" | capitalize }}""") mustEqual "Foobar"
+    }
+
+    "must maintain the safe flag" in {
+
+      environment.render("""{{ 'foo<br/>bar' | safe | capitalize }}""") mustEqual "Foo<br/>bar"
     }
   }
 }

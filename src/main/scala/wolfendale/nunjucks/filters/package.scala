@@ -31,7 +31,7 @@ package object filters {
   }
 
   val capitalize: Filter = Filter { string =>
-    Str(string.toStr.value.capitalize)
+    mapString(string, _.toLowerCase.capitalize)
   }
 
   val upper: Filter = Filter { string =>
@@ -105,4 +105,9 @@ package object filters {
     "safe"       -> safe,
     "indent"     -> noop
   )
+
+  private def mapString(value: Value, f: String => String): Value.Str = {
+    val string = value.toStr
+    string.copy(value = f(string.value))
+  }
 }
