@@ -5,19 +5,19 @@ import cats.data._
 import cats.implicits._
 import wolfendale.nunjucks.expression.runtime.Value
 
-class Environment(loaders: Seq[Loader]) {
+class Environment(loaders: NonEmptyChain[Loader]) {
 
-  def load(to: String, from: Option[String]): Option[Template] =
-    loaders.flatMap(_.load(to, from)).headOption
+  def this(loader: Loader, rest: Loader*) =
+    this(NonEmptyChain(loader, rest: _*))
 
-  def load(to: String): Option[Template] =
-    load(to, None)
+  def resolveAndLoad(path: String, caller: Option[String]): Either[List[String], Loader.ResolvedTemplate] =
+    loaders.parTraverse(_.resolveAndLoad(path, caller)).map(_.head)
 
   def renderTemplate(path: String): Option[String] =
     renderTemplate(path, Value.Obj.empty)
 
   def renderTemplate(path: String, scope: Value.Obj): Option[String] = {
-    load(path).map(_.render.runA(Context(this, Frame(scope).enter)).value)
+    resolveAndLoad(path, None).toOption.map(_.template.render.runA(Context(this, Frame(scope).enter)).value)
   }
 
   def render(template: String): String =
@@ -30,7 +30,7 @@ class Environment(loaders: Seq[Loader]) {
   }
 }
 
-final class ProvidedEnvironment(loader: ProvidedLoader = new ProvidedLoader()) extends Environment(Seq(loader)) {
+final class ProvidedEnvironment(loader: ProvidedLoader = new ProvidedLoader()) extends Environment(loader) {
 
   def add(name: String, template: Template): ProvidedEnvironment =
     new ProvidedEnvironment(loader.add(name, template))

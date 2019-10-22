@@ -1,8 +1,8 @@
 package wolfendale.nunjucks
 
-import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
+import org.scalatest.{EitherValues, FreeSpec, MustMatchers, OptionValues}
 
-class LoaderSpec extends FreeSpec with MustMatchers with OptionValues {
+class LoaderSpec extends FreeSpec with MustMatchers with OptionValues with EitherValues {
 
   def compile(template: String): Template = {
     import fastparse._
@@ -13,30 +13,47 @@ class LoaderSpec extends FreeSpec with MustMatchers with OptionValues {
 
   "a loader" - {
 
-    "must load a root template" in {
+    "must resolve a root template" in {
 
       val foo = compile("Hello, World!")
 
       loader
         .add("foo", foo)
-        .load("foo", None).value mustEqual foo
+        .resolve("foo", None).right.value mustEqual "foo"
     }
 
-    "must load a sibling template" in {
+    "must resolve a sibling template" in {
 
       val foo = compile("Hello, World!")
 
       loader
         .add("foo", foo)
-        .load("foo", Some("bar")).value mustEqual foo
+        .resolve("foo", Some("bar")).right.value mustEqual "foo"
 
       loader
         .add("bar/foo", foo)
-        .load("foo", Some("bar/quux")).value mustEqual foo
+        .resolve("foo", Some("bar/quux")).right.value mustEqual "bar/foo"
 
       loader
         .add("bar/foo", foo)
-        .load("./foo", Some("bar/quux")).value mustEqual foo
+        .resolve("./foo", Some("bar/quux")).right.value mustEqual "bar/foo"
+    }
+
+    "must prioritise a relative template over a root one" in {
+
+      val foo = compile("Hello, World!")
+
+      loader
+        .add("foo", foo)
+        .add("bar/foo", foo)
+        .resolve("foo", Some("bar/quux")).right.value mustEqual "bar/foo"
+    }
+
+    "must fail with a list of attempted paths when a template cannot be found" in {
+
+      loader.resolve("foo", Some("bar/quux")).left.value must contain only(
+        "foo", "bar/foo"
+      )
     }
   }
 }
