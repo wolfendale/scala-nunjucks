@@ -35,7 +35,7 @@ package object filters {
   }
 
   val upper: Filter = Filter { string =>
-    Str(string.toStr.value.toUpperCase)
+    mapString(string, _.toUpperCase)
   }
 
   val lower: Filter = Filter { string =>
