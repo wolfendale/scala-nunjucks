@@ -1,0 +1,45 @@
+site.error-summary = There is a problem
+site.back = Back
+site.continue = Continue
+site.edit = Change
+site.edit.hidden = your answer to {0}
+
+site.day = day
+site.month = month
+site.year = year
+site.day.capitalized = Day
+site.month.capitalized = Month
+site.year.capitalized = Year
+site.na = N/A
+
+site.yes = Yes
+site.no = No
+
+error.summary.title = There is a problem
+error.title.prefix = Error:
+
+checkboxes.title = Checkboxes
+checkboxes.a = First
+checkboxes.b = Second
+checkboxes.c = Third
+
+booleanProduct.title = Boolean product
+booleanProduct.a = First
+booleanProduct.b = Second
+booleanProduct.c = Third
+
+radios.title = Radios
+radios.a = First
+radios.b = Second
+radios.c = Third
+
+yesNo.title = Yes or no
+
+date.title = Date
+date.hint = For example, 12 11 2007
+date.invalid = Enter a real date
+date.required = Enter a date
+date.required.1 = A date must include a {0}
+date.required.2 = A date must include a {0} and {1}
+
+summaryList.title = Summary list

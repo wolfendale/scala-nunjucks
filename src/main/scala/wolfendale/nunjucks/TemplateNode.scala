@@ -80,7 +80,7 @@ object TemplateNode {
       all.foldLeft(State.pure[Context, Option[String]](None)) { (m, n) =>
         m.flatMap {
           case None =>
-            Monad[State[Context, ?]].ifM(State.inspect(context => n.condition.eval(context) == Value.True))(
+            Monad[State[Context, *]].ifM(State.inspect(context => n.condition.eval(context) == Value.True))(
               ifTrue = n.content.eval.map(_.some),
               ifFalse = State.pure(None))
           case some => State.pure(some)
@@ -232,12 +232,13 @@ object TemplateNode {
 
     override def eval: State[Context, String] = State.inspect[Context, String] { context =>
       val partial = expr.eval(context).toStr.value
-      context.environment.load(partial, context.path).map {
-        _.render.runA(context.copy(path = Loader.resolveSibling(partial, context.path))).value
-      }.getOrElse {
+      context.environment.resolveAndLoad(partial, context.path).map {
+        resolvedTemplate =>
+          resolvedTemplate.template.render.runA(context.copy(path = Some(resolvedTemplate.path))).value
+      }.leftMap { paths =>
         if (ignoreMissing) ""
-        else throw new RuntimeException(s"missing template `$partial`")
-      }
+        else throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
+      }.merge
     }
   }
 
@@ -248,11 +249,13 @@ object TemplateNode {
         .modify[Context] { context =>
           val partial = expr.eval(context).toStr.value
           context.environment
-            .load(partial)
-            .map { template =>
-              val scope = template.render.runS(context.copy(path = Loader.resolveSibling(partial, context.path))).value.scope.value
+            .resolveAndLoad(partial, context.path)
+            .map { resolvedTemplate =>
+              val scope = resolvedTemplate.template.render.runS(context.copy(path = Some(resolvedTemplate.path))).value.scope.value
               context.setScope(identifier.value, scope, resolveUp = false)
-            }.getOrElse(throw new RuntimeException(s"missing template `$partial`"))
+            }.leftMap { paths =>
+              throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
+            }.merge
         }
         .map(_ => "")
   }
@@ -266,16 +269,17 @@ object TemplateNode {
         .modify[Context] { context =>
           val partial = expr.eval(context).toStr.value
           context.environment
-            .load(partial, context.path)
-            .map { template =>
-              val scope = template.render.runS(context.copy(path = Loader.resolveSibling(partial, context.path))).value.scope.value
+            .resolveAndLoad(partial, context.path)
+            .map { resolvedTemplate =>
+              val scope = resolvedTemplate.template.render.runS(context.copy(path = Some(resolvedTemplate.path))).value.scope.value
               val values = identifiers.map {
                 case (key, preferred) =>
                   preferred.getOrElse(key).value -> scope.get(key.value)
               }
               context.setScope(values, resolveUp = false)
-            }
-            .getOrElse(throw new RuntimeException(s"missing template `$partial`"))
+            }.leftMap { paths =>
+              throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
+            }.merge
         }
         .map(_ => "")
   }
@@ -345,11 +349,12 @@ final case class ChildTemplate(parent: expression.syntax.AST.Expr, partial: Opti
     val newContext =
       partial.map(_.eval.runS(context).value).getOrElse(context)
     context.environment
-      .load(parentTemplate, context.path)
-      .map { rootTemplate =>
-        rootTemplate.render.runA(newContext).value
-      }
-      .getOrElse(throw new RuntimeException(s"missing template `$parentTemplate"))
+      .resolveAndLoad(parentTemplate, context.path)
+      .map { resolvedTemplate =>
+        resolvedTemplate.template.render.runA(newContext.copy(path = Some(resolvedTemplate.path))).value
+      }.leftMap { paths =>
+        throw new RuntimeException(s"missing template `$parentTemplate`, attempted paths: ${paths.mkString(", ")}")
+      }.merge
   }
 }
 

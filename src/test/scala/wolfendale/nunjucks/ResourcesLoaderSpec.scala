@@ -5,13 +5,13 @@ import wolfendale.nunjucks.expression.runtime.Value
 
 class ResourcesLoaderSpec extends FreeSpec with MustMatchers with OptionValues {
 
-  val loader = new ResourcesLoader(Seq(
+  val loader = new ResourcesLoader(List(
     "/",
     "/sub",
     "/META-INF/resources/webjars/govuk-frontend/3.1.0/govuk"
   ))
 
-  val environment = new Environment(Seq(loader))
+  val environment = new Environment(loader)
 
   "a resources loader" - {
 
