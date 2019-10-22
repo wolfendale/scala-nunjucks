@@ -34,33 +34,11 @@ abstract class Loader(roots: List[String]) {
 
   final def resolve(path: String, caller: Option[String]): Either[List[String], String] =
     resolveAndLoad(path, caller).right.map(_.path)
-
-  @deprecated
-  def load(to: String, from: Option[String] = None): Option[Template] =
-    Loader.resolveSibling(to, from).flatMap(load)
 }
 
 object Loader {
 
   final case class ResolvedTemplate(path: String, template: Template)
-
-  @deprecated
-  def resolveSibling(to: String, from: Option[String]): Option[String] =
-    from
-      .flatMap(f => Option(Paths.get(f)))
-      .flatMap(f => Option(f.getParent))
-      .map { parent =>
-        Some(parent.resolve(to).normalize.toString)
-      }
-      .getOrElse(Option(Paths.get(to).normalize.toString))
-
-  @deprecated
-  def resolveChild(to: String, from: Option[String]): Option[String] =
-    from
-      .flatMap(f => Option(Paths.get(f)))
-      .map { parent =>
-        parent.resolve(to).normalize.toString
-      }
 }
 
 class ProvidedLoader(templates: Map[String, Template] = Map.empty) extends Loader(List("")) {
