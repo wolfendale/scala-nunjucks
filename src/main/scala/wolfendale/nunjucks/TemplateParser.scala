@@ -178,16 +178,23 @@ object TemplateParser {
         .map(TemplateNode.Include.tupled)
     }
 
+    def withContext = {
+      import SingleLineWhitespace._
+      def withContext    = P("with").map(_ => true)
+      def withoutContext = P("without").map(_ => false)
+      P(" " ~ (withoutContext | withContext) ~ "context").?.map(_.getOrElse(false))
+    }
+
     def importTag = {
       import SingleLineWhitespace._
-      P(openTag ~ "import" ~ Parser.expression ~ "as" ~ Parser.identifier ~ closeTag)
+      P(openTag ~ "import" ~ Parser.expression ~ "as" ~ Parser.identifier ~~ withContext ~ closeTag)
     }.map(TemplateNode.Import.tupled)
 
     def fromTag = {
       import SingleLineWhitespace._
       P(
         openTag ~ "from" ~ Parser.expression ~ "import" ~ (Parser.identifier ~ ("as" ~ Parser.identifier).?)
-          .rep(1, sep = ",") ~ closeTag)
+          .rep(1, sep = ",") ~~ withContext ~ closeTag)
         .map(TemplateNode.From.tupled)
     }
 
@@ -261,10 +268,10 @@ object NunjucksWhitespace {
   // TODO: potentially refactor out mutable state
   // TODO: include whitespace rules for inside tags and expressions?
   implicit val whitespace: (ParsingRun[_] => ParsingRun[Unit]) = { implicit ctx =>
-    val close  = "-[}#%]}"
-    val open   = "\\{[{#%]-"
-    val input  = ctx.input
-    var index  = ctx.index
+    val close = "-[}#%]}"
+    val open  = "\\{[{#%]-"
+    val input = ctx.input
+    var index = ctx.index
     if (input.slice(index - 3, index).matches(close)) {
       while (input.isReachable(index) &&
              (input(index) match {

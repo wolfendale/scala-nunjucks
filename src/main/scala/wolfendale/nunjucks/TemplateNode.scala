@@ -242,7 +242,7 @@ object TemplateNode {
     }
   }
 
-  final case class Import(expr: expression.syntax.AST.Expr, identifier: expression.syntax.AST.Identifier) extends Tag {
+  final case class Import(expr: expression.syntax.AST.Expr, identifier: expression.syntax.AST.Identifier, withContext: Boolean) extends Tag {
 
     override def eval: State[Context, String] =
       State
@@ -251,7 +251,11 @@ object TemplateNode {
           context.environment
             .resolveAndLoad(partial, context.path)
             .map { resolvedTemplate =>
-              val scope = resolvedTemplate.template.render.runS(context.copy(path = Some(resolvedTemplate.path))).value.scope.value
+              val scope = resolvedTemplate.template.render.runS {
+                context.copy(
+                  path = Some(resolvedTemplate.path)
+                )
+              }.value.scope.value
               context.setScope(identifier.value, scope, resolveUp = false)
             }.leftMap { paths =>
               throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
@@ -261,7 +265,7 @@ object TemplateNode {
   }
 
   final case class From(expr: expression.syntax.AST.Expr,
-                        identifiers: Seq[(expression.syntax.AST.Identifier, Option[expression.syntax.AST.Identifier])])
+                        identifiers: Seq[(expression.syntax.AST.Identifier, Option[expression.syntax.AST.Identifier])], withContext: Boolean)
       extends Tag {
 
     override def eval: State[Context, String] =
@@ -271,7 +275,9 @@ object TemplateNode {
           context.environment
             .resolveAndLoad(partial, context.path)
             .map { resolvedTemplate =>
-              val scope = resolvedTemplate.template.render.runS(context.copy(path = Some(resolvedTemplate.path))).value.scope.value
+              val scope = resolvedTemplate.template.render.runS {
+                context.copy(path = Some(resolvedTemplate.path))
+              }.value.scope.value
               val values = identifiers.map {
                 case (key, preferred) =>
                   preferred.getOrElse(key).value -> scope.get(key.value)
