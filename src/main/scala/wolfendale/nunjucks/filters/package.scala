@@ -39,11 +39,11 @@ package object filters {
   }
 
   val lower: Filter = Filter { string =>
-    Str(string.toStr.value.toLowerCase)
+    mapString(string, _.toLowerCase)
   }
 
   val trim: Filter = Filter { string: Value =>
-    Str(string.toStr.value.trim)
+    mapString(string, _.trim)
   }
 
   val first: Filter = Filter {

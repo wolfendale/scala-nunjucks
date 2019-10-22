@@ -13,5 +13,10 @@ class TrimSpec extends FreeSpec with MustMatchers {
 
       environment.render("""{{ "  hello  " | trim}}""") mustEqual "hello"
     }
+
+    "maintain the safe flag" in {
+
+      environment.render("""{{ "  foo<br/>bar  " | safe | trim }}""") mustEqual "foo<br/>bar"
+    }
   }
 }
