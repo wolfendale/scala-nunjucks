@@ -253,7 +253,8 @@ object TemplateNode {
             .map { resolvedTemplate =>
               val scope = resolvedTemplate.template.render.runS {
                 context.copy(
-                  path = Some(resolvedTemplate.path)
+                  path = Some(resolvedTemplate.path),
+                  scope = if (withContext) context.scope else Frame.empty.enter
                 )
               }.value.scope.value
               context.setScope(identifier.value, scope, resolveUp = false)
@@ -276,7 +277,10 @@ object TemplateNode {
             .resolveAndLoad(partial, context.path)
             .map { resolvedTemplate =>
               val scope = resolvedTemplate.template.render.runS {
-                context.copy(path = Some(resolvedTemplate.path))
+                context.copy(
+                  path = Some(resolvedTemplate.path),
+                  scope = if (withContext) context.scope else Frame.empty.enter
+                )
               }.value.scope.value
               val values = identifiers.map {
                 case (key, preferred) =>
