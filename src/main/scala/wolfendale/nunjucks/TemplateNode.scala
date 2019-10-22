@@ -80,7 +80,7 @@ object TemplateNode {
       all.foldLeft(State.pure[Context, Option[String]](None)) { (m, n) =>
         m.flatMap {
           case None =>
-            Monad[State[Context, *]].ifM(State.inspect(context => n.condition.eval(context) == Value.True))(
+            Monad[State[Context, *]].ifM(State.inspect(context => n.condition.eval(context).toBool))(
               ifTrue = n.content.eval.map(_.some),
               ifFalse = State.pure(None))
           case some => State.pure(some)
