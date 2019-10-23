@@ -252,15 +252,6 @@ object AST {
 
   final case class Call(expr: Expr, args: Seq[(Option[Identifier], Expr)]) extends Expr {
 
-//    override def eval(context: Context): Value = {
-//
-//      val parameters = Value.Function.Parameters(args.map {
-//        case (k, v) =>
-//          Value.Function.Parameter(k.map(_.value), v.eval(context))
-//      })
-//
-//      expr.eval(context)(context.frame.get, parameters)
-//    }
     override def eval: State[Context, Value] = {
 
       val parameters = args.foldLeft(State.pure[Context, Vector[Value.Function.Parameter]](Vector.empty)) {

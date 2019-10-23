@@ -171,8 +171,7 @@ object TemplateNode {
       State
         .modify[Context] { context =>
           val body = Value.Function { parameters =>
-            State.inspect[Context, Value] { callingContext =>
-
+            State[Context, Value] { callingContext =>
               val defaultArguments = args.flatMap {
                 case (id, value) =>
                   value.map(id.value -> _.eval.runA(context).value)
@@ -185,15 +184,21 @@ object TemplateNode {
               val positionalParameters = args.keys
                 .map(_.value)
                 .filterNot(byNameParameters.isDefinedAt)
-                .zip(parameters.parameters.toList.mapFilter(param => if (param.name.isEmpty) Some(param.value) else None))
+                .zip(parameters.parameters.toList.mapFilter(param =>
+                  if (param.name.isEmpty) Some(param.value) else None))
 
               val completeParameters =
                 (defaultArguments ++ byNameParameters ++ positionalParameters).toList
 
-              Value.Str(content.eval
-                .runA(callingContext.frame.set(completeParameters, resolveUp = false))
-                .value,
-                safe = true)
+              val result = for {
+                c      <- State.get[Context]
+                _      <- State.modify[Context](_.frame.empty.frame.set(completeParameters, resolveUp = false))
+                _      <- State.modify[Context](_.frame.set("caller", c.frame.get("caller"), resolveUp = false))
+                result <- content.eval
+                _      <- State.modify[Context](_.frame.set(c.frame.get))
+              } yield Value.Str(result, safe = true)
+
+              result.run(callingContext).value
             }
           }
 
@@ -202,23 +207,51 @@ object TemplateNode {
         .map(_ => "")
   }
 
-  final case class Call(identifier: expression.syntax.AST.Identifier,
-                        parameters: Seq[(Option[expression.syntax.AST.Identifier], expression.syntax.AST.Expr)],
+  final case class Call(parameters: Map[expression.syntax.AST.Identifier, Option[expression.syntax.AST.Expr]],
+                        expr: expression.syntax.AST.Expr,
+                        arguments: Seq[(Option[expression.syntax.AST.Identifier], expression.syntax.AST.Expr)],
                         partial: Partial)
       extends Tag {
 
     override def eval: State[Context, String] = State.inspect[Context, String] { context =>
-      val body = Value.Function { _ =>
-        partial.eval.map(Value.Str(_))
+      val body = Value.Function { callerParameters =>
+        State[Context, Value] { callingContext =>
+          val defaultArguments = parameters.flatMap {
+            case (id, value) =>
+              value.map(id.value -> _.eval.runA(context).value)
+          }
+
+          val byNameParameters = callerParameters.parameters.toList
+            .mapFilter(param => param.name.map(_ -> param.value))
+            .toMap
+
+          val positionalParameters = parameters.keys
+            .map(_.value)
+            .filterNot(byNameParameters.isDefinedAt)
+            .zip(callerParameters.parameters.toList.mapFilter(param =>
+              if (param.name.isEmpty) Some(param.value) else None))
+
+          val completeParameters =
+            (defaultArguments ++ byNameParameters ++ positionalParameters).toList
+
+          val result = for {
+            _      <- State.modify[Context](_.frame.set(completeParameters, resolveUp = false))
+            result <- partial.eval
+          } yield Value.Str(result, safe = true)
+
+          (callingContext, result.runA(context).value)
+        }
       }
 
-      val resolvedParameters = Value.Function.Parameters(parameters.map {
+      val resolvedParameters = Value.Function.Parameters(arguments.map {
         case (k, v) =>
           Value.Function.Parameter(k.map(_.value), v.eval.runA(context).value)
       })
 
-      context.frame
-        .get(identifier.value)(resolvedParameters).runA(context.frame.set("caller", body, resolveUp = false))
+      expr.eval
+        .runA(context)
+        .value(resolvedParameters)
+        .runA(context.frame.set("caller", body, resolveUp = false))
         .value
         .toStr
         .value

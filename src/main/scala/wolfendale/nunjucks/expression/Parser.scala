@@ -27,7 +27,7 @@ object Parser {
       def call =
         P(
           "(" ~ ((identifier ~ "=").? ~ expression)
-            .rep(sep = ","./) ~ ")").map(Call)
+            .rep(sep = ",") ~ ")").map(Call)
       P(group ~ (directAccess | computedAccess | call).rep).map {
         case (lhs, chunks) =>
           chunks.foldLeft(lhs) {

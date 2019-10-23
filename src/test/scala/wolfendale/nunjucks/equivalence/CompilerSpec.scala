@@ -773,7 +773,7 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
       "<li>{{ caller(i) }}</li>" +
       "{% endfor %}</ul>" +
       "{% endmacro %}" +
-      "{% call(items) list([\"a\", \"b\"]) %}{{ item }}{% endcall %}"
+      "{% call(item) list([\"a\", \"b\"]) %}{{ item }}{% endcall %}"
 
     environment.render(template) mustEqual "<ul><li>a</li><li>b</li></ul>"
   }
