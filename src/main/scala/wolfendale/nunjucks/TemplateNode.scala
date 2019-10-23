@@ -94,6 +94,32 @@ object TemplateNode {
     final case class ConditionalContent(condition: expression.syntax.AST, content: Partial)
   }
 
+
+  final case class Switch(exprToMatch:expression.syntax.AST.Expr, contents: Seq[Switch.ConditionalContent], default: Option[Partial]) extends Tag {
+
+    override def eval: State[Context, String] = {
+
+      val all = default
+        .map(contents :+ Switch.ConditionalContent(exprToMatch, _))
+        .getOrElse(contents)
+
+      all.foldLeft(State.pure[Context, Option[String]](None)) { (m, n) =>
+        m.flatMap {
+          case None =>
+            Monad[State[Context, *]].ifM(State.inspect(context => {println(); n.condition.eval(context).equals(exprToMatch.eval(context))}))(
+              ifTrue = n.content.eval.map(_.some),
+              ifFalse = State.pure(None))
+          case some => State.pure(some)
+        }
+      }
+      }.map(_.getOrElse(""))
+  }
+
+  object Switch {
+
+    final case class ConditionalContent(condition: expression.syntax.AST, content: Partial)
+  }
+
   final case class For(identifiers: Seq[expression.syntax.AST.Identifier],
                        expr: expression.syntax.AST.Expr,
                        partial: Partial,
