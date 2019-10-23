@@ -61,10 +61,7 @@ final case class ChildFrame(values: Map[String, Value], parent: Frame) extends F
       resolve(key)
         .filterNot(_ == this)
         .map {
-//          case _: RootFrame =>
-//             this case is strange
-//            Frame(values + (key -> value), parent)
-          case _ =>
+          _ =>
             Frame(values, parent.set(key, value, resolveUp = true))
         }
         .getOrElse(Frame(values + (key -> value), parent))

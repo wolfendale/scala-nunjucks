@@ -69,19 +69,6 @@ class FrameSpec extends FreeSpec with MustMatchers with OptionValues {
         scope.get("foo") mustEqual Value.Str("rab")
         scope.pop.get("foo") mustEqual Value.Str("rab")
       }
-
-      // note: this seems odd but seems to be the behaviour we see in nunjucks
-      // note: potentially not correct
-      "must not resolve up to root scope" ignore {
-
-        val scope = Frame.empty
-          .set("foo", Value.Str("bar"), resolveUp = false)
-          .push
-          .set("foo", Value.Str("rab"), resolveUp = true)
-
-        scope.get("foo") mustEqual Value.Str("rab")
-        scope.pop.get("foo") mustEqual Value.Str("bar")
-      }
     }
 
     "value" - {
