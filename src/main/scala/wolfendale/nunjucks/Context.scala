@@ -80,6 +80,9 @@ object Context {
     def get: Frame =
       context._frame
 
+    def empty: Context =
+      context.copy(_frame = Frame.empty)
+
     def push: Context =
       context.copy(_frame = context._frame.push)
 

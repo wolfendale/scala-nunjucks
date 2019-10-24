@@ -3,6 +3,7 @@ package wolfendale.nunjucks
 import cats.data.NonEmptyList
 import fastparse._
 import wolfendale.nunjucks.expression.Parser
+import wolfendale.nunjucks.expression.syntax.AST
 
 object TemplateParser {
 
@@ -156,10 +157,28 @@ object TemplateParser {
 
     def callTag = {
 
+      def identifier = {
+        import SingleLineWhitespace._
+        sealed abstract class Access
+        final case class DirectAccess(identifier: AST.Identifier) extends Access
+        final case class ComputedAccess(identifier: AST.Expr)     extends Access
+        def directAccess   = P("." ~ Parser.identifier).map(DirectAccess)
+        def computedAccess = P("[" ~ Parser.expression ~ "]").map(ComputedAccess)
+        P(Parser.identifier ~ (directAccess | computedAccess).rep).map {
+          case (lhs, chunks) =>
+            chunks.foldLeft[AST.Expr](lhs) {
+              case (l, DirectAccess(identifier)) =>
+                AST.Access(l, identifier)
+              case (l, ComputedAccess(expr)) =>
+                AST.ComputedAccess(l, expr)
+            }
+        }
+      }
+
       def open = {
         import SingleLineWhitespace._
         P(
-          openTag ~ "call" ~ Parser.identifier ~ "(" ~ ((Parser.identifier ~ "=").? ~ Parser.expression)
+          openTag ~ "call" ~ ("(" ~ (Parser.identifier ~ ("=" ~ Parser.expression).?).rep(sep = ",").map(_.toMap) ~ ")").?.map(_.getOrElse(Map.empty)) ~ identifier ~ "(" ~ ((Parser.identifier ~ "=").? ~ Parser.expression)
             .rep(sep = ",") ~ ")" ~ closeTag)
       }
 
