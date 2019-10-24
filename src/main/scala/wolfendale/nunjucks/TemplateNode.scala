@@ -25,6 +25,8 @@ object TemplateNode {
 
   final case class Partial(contents: Seq[TemplateNode]) extends TemplateNode {
 
+    def isEmpty: Boolean = contents.isEmpty
+
     override def eval: State[Context, String] =
       contents.foldLeft(State.pure[Context, String]("")) { (m, n) =>
         for {
@@ -99,14 +101,23 @@ object TemplateNode {
 
     override def eval: State[Context, String] = {
 
-      val all = default
-        .map(contents :+ Switch.ConditionalContent(exprToMatch, _))
+      val all: Seq[Switch.ConditionalContent] = default
+        .map(contents :+ Switch.ConditionalContent(Seq(exprToMatch), _))
         .getOrElse(contents)
 
-      all.foldLeft(State.pure[Context, Option[String]](None)) { (m, n) =>
+      val collapsedConditionals = all.foldRight(Seq.empty[Switch.ConditionalContent]){
+        (m, n) => if(m.content.isEmpty){
+          val last = n.head
+          Switch.ConditionalContent(last.condition ++ m.condition, last.content) +: n.tail
+        }else {
+          m +: n
+        }
+      }
+
+      collapsedConditionals.foldLeft(State.pure[Context, Option[String]](None)) { (m, n) =>
         m.flatMap {
           case None =>
-            Monad[State[Context, *]].ifM(State.inspect(context => {println(); n.condition.eval(context).equals(exprToMatch.eval(context))}))(
+            Monad[State[Context, *]].ifM(State.inspect(context => n.condition.exists(_.eval(context).equals(exprToMatch.eval(context)))))(
               ifTrue = n.content.eval.map(_.some),
               ifFalse = State.pure(None))
           case some => State.pure(some)
@@ -116,8 +127,7 @@ object TemplateNode {
   }
 
   object Switch {
-
-    final case class ConditionalContent(condition: expression.syntax.AST, content: Partial)
+    final case class ConditionalContent(condition: Seq[expression.syntax.AST], content: Partial)
   }
 
   final case class For(identifiers: Seq[expression.syntax.AST.Identifier],

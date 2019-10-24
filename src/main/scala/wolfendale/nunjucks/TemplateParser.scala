@@ -86,7 +86,7 @@ object TemplateParser {
       import NoWhitespace._
       P(
         switch
-          ~ (`case` ~ partial).map(TemplateNode.Switch.ConditionalContent.tupled).rep
+          ~ (`case` ~ partial).map(a => TemplateNode.Switch.ConditionalContent(Seq(a._1), a._2)).rep
           ~ (`default` ~ partial).?
           ~ endSwitch)
         .map {
