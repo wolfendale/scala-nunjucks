@@ -10,6 +10,23 @@ class SwitchTagSpec extends FreeSpec with MustMatchers {
 
   "a switch tag" - {
 
+    "must not compile if it doesnt contain any cases or default" in {
+      assertThrows[RuntimeException] {
+        environment.render("{% switch foo %}{% endswitch %}", Value.Obj.empty)
+      }
+    }
+
+    "must compile when missing cases but does have a default" in {
+      environment.render(
+        """
+          |{% switch foo %}
+          |{% default %}
+          |{% endswitch %}
+          |""".stripMargin,
+        Value.Obj.empty
+      ) mustBe ""
+    }
+
     "must drop through to the default when provided with no value in the context to match" in {
       environment.render(
         "{% switch foo %}{% case \"bar\" %}BAR{% case \"baz\" %}BAZ{% default %}NEITHER FOO NOR BAR{% endswitch %}"
@@ -52,6 +69,20 @@ class SwitchTagSpec extends FreeSpec with MustMatchers {
         Value.Obj(
           "foo" -> Value.Str("baz")
         )) mustEqual "BAR"
+    }
+
+    "must use strict equality in evaluating case statements" in {
+      environment.render(
+        """
+          |{% set foo = 1 %}
+          |{% switch foo %}
+          |{% case "1" %}coercive
+          |{% default %}strict
+          |{% endswitch %}
+          |""".stripMargin,
+        Value.Obj.empty
+      ) mustBe "strict"
+
     }
   }
 }

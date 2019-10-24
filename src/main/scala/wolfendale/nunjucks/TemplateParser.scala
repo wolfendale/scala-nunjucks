@@ -62,7 +62,7 @@ object TemplateParser {
         }
     }
 
-    def switchTag = {
+    def switchTag: P[TemplateNode.Switch] = {
       def switch = {
         import SingleLineWhitespace._
         P( openTag ~ "switch" ~/ Parser.expression ~ closeTag)
