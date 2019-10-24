@@ -5,6 +5,7 @@ import cats.data._
 import cats.implicits._
 import wolfendale.nunjucks.TemplateNode.Partial
 import wolfendale.nunjucks.expression.runtime.Value
+import wolfendale.nunjucks.expression.syntax.AST
 
 import scala.annotation.tailrec
 
@@ -97,16 +98,18 @@ object TemplateNode {
   }
 
 
-  final case class Switch(exprToMatch:expression.syntax.AST.Expr, contents: Seq[Switch.ConditionalContent], default: Option[Partial]) extends Tag {
+  final case class Switch(exprToMatch:expression.syntax.AST.Expr, matchConditions: Seq[Switch.ConditionalContent], default: Option[Partial]) extends Tag {
+
+    require(default.isDefined || matchConditions.nonEmpty)
 
     override def eval: State[Context, String] = {
 
       val all: Seq[Switch.ConditionalContent] = default
-        .map(contents :+ Switch.ConditionalContent(Seq(exprToMatch), _))
-        .getOrElse(contents)
+        .map(matchConditions :+ Switch.ConditionalContent(Seq(exprToMatch), _))
+        .getOrElse(matchConditions)
 
       val collapsedConditionals = all.foldRight(Seq.empty[Switch.ConditionalContent]){
-        (m, n) => if(m.content.isEmpty){
+        (m, n) => if(m.content.isEmpty && n.nonEmpty){
           val last = n.head
           Switch.ConditionalContent(last.condition ++ m.condition, last.content) +: n.tail
         }else {

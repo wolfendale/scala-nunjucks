@@ -64,26 +64,26 @@ object TemplateParser {
 
     def switchTag: P[TemplateNode.Switch] = {
       def switch = {
-        import SingleLineWhitespace._
+        import MultiLineWhitespace._
         P( openTag ~ "switch" ~/ Parser.expression ~ closeTag)
       }
 
       def `case` = {
-        import SingleLineWhitespace._
+        import MultiLineWhitespace._
         P( openTag ~ "case" ~/ Parser.expression ~ closeTag)
       }
 
       def `default` = {
-        import SingleLineWhitespace._
+        import MultiLineWhitespace._
         P( openTag ~ "default" ~ closeTag)
       }
 
       def endSwitch = {
-        import SingleLineWhitespace._
+        import MultiLineWhitespace._
         P( openTag ~ "endswitch" ~ closeTag)
       }
 
-      import NoWhitespace._
+      import MultiLineWhitespace._
       P(
         switch
           ~ (`case` ~ partial).map(a => TemplateNode.Switch.ConditionalContent(Seq(a._1), a._2)).rep

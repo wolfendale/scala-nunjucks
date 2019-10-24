@@ -24,7 +24,7 @@ class SwitchTagSpec extends FreeSpec with MustMatchers {
           |{% endswitch %}
           |""".stripMargin,
         Value.Obj.empty
-      ) mustBe ""
+      ).trim mustBe ""
     }
 
     "must drop through to the default when provided with no value in the context to match" in {
@@ -81,7 +81,7 @@ class SwitchTagSpec extends FreeSpec with MustMatchers {
           |{% endswitch %}
           |""".stripMargin,
         Value.Obj.empty
-      ) mustBe "strict"
+      ).trim mustBe "strict"
 
     }
   }
