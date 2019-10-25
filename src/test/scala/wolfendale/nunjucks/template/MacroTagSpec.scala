@@ -1,9 +1,9 @@
 package wolfendale.nunjucks.template
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
 import wolfendale.nunjucks.ProvidedEnvironment
 
-class MacroTagSpec extends FreeSpec with MustMatchers {
+class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
   val environment = new ProvidedEnvironment()
 
@@ -89,6 +89,17 @@ class MacroTagSpec extends FreeSpec with MustMatchers {
       val result = environment.render("{% macro fib(num) %}{% if num < 10 %}{{ num }}{{ fib(num + 1) }}{% endif %}{% endmacro %}{{ fib(1) }}")
 
       result mustEqual "123456789"
+    }
+
+    "must locate the right include from a macro call" in {
+
+      val environment = new ProvidedEnvironment()
+        .add("include.njk", "wrong")
+        .add("sub/include.njk", "right")
+        .add("sub/macro.njk", "{% macro foo() %}{% include 'include.njk' %}{% endmacro %}")
+        .add("test.njk", "{% from 'sub/macro.njk' import foo %}{{ foo() }}")
+
+      environment.renderTemplate("test.njk").value mustEqual "right"
     }
   }
 
