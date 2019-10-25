@@ -115,7 +115,7 @@ object TemplateNode {
       collapsedConditionals.foldLeft(State.pure[Context, Option[String]](None)) { (m, n) =>
         m.flatMap {
           case None =>
-            Monad[State[Context, *]].ifM(State.inspect(context => n.condition.exists(_.eval(context).equals(exprToMatch.eval(context)))))(
+            Monad[State[Context, *]].ifM(State.inspect(context => n.condition.exists(_.eval.runA(context).equals(exprToMatch.eval.runA(context)))))(
               ifTrue = n.content.eval.map(_.some),
               ifFalse = State.pure(None))
           case some => State.pure(some)
