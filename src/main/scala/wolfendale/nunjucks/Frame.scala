@@ -6,8 +6,8 @@ sealed abstract class Frame {
 
   def get(key: String): Value
   def set(key: String, value: Value, resolveUp: Boolean): Frame
-  def enter: Frame
-  def exit: Frame
+  def push: Frame
+  def pop: Frame
 
   final def set(entries: Seq[(String, Value)], resolveUp: Boolean): Frame =
     entries.foldLeft(this) {
@@ -18,14 +18,16 @@ sealed abstract class Frame {
   def value: Value.Obj
 
   def resolve(key: String): Option[Frame]
+
+  def isRoot: Boolean
 }
 
 final case class RootFrame(values: Map[String, Value]) extends Frame {
 
-  override def enter: ChildFrame =
+  override def push: ChildFrame =
     Frame(Map.empty[String, Value], this)
 
-  override def exit: RootFrame =
+  override def pop: RootFrame =
     throw new RuntimeException("escaped root scope")
 
   override def value: Value.Obj =
@@ -39,14 +41,16 @@ final case class RootFrame(values: Map[String, Value]) extends Frame {
 
   override def resolve(key: String): Option[Frame] =
     if (values.get(key).isDefined) Some(this) else None
+
+  override def isRoot: Boolean = true
 }
 
 final case class ChildFrame(values: Map[String, Value], parent: Frame) extends Frame {
 
-  override def enter: ChildFrame =
+  override def push: ChildFrame =
     Frame(Map.empty[String, Value], this)
 
-  override def exit: Frame =
+  override def pop: Frame =
     parent
 
   override def get(key: String): Value =
@@ -57,10 +61,7 @@ final case class ChildFrame(values: Map[String, Value], parent: Frame) extends F
       resolve(key)
         .filterNot(_ == this)
         .map {
-          case _: RootFrame =>
-            // this case is strange
-            Frame(values + (key -> value), parent)
-          case _ =>
+          _ =>
             Frame(values, parent.set(key, value, resolveUp = true))
         }
         .getOrElse(Frame(values + (key -> value), parent))
@@ -73,6 +74,8 @@ final case class ChildFrame(values: Map[String, Value], parent: Frame) extends F
 
   override def resolve(key: String): Option[Frame] =
     if (values.get(key).isDefined) Some(this) else parent.resolve(key)
+
+  override def isRoot: Boolean = false
 }
 
 object Frame {

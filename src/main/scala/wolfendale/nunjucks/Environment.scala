@@ -5,15 +5,21 @@ import cats.data._
 import cats.implicits._
 import wolfendale.nunjucks.expression.runtime.Value
 
-abstract class Environment {
+class Environment(loaders: NonEmptyChain[Loader]) {
 
-  def load(path: String): Option[Template]
+  def this(loader: Loader, rest: Loader*) =
+    this(NonEmptyChain(loader, rest: _*))
+
+  def resolveAndLoad(path: String, caller: Option[String]): Either[List[String], Loader.ResolvedTemplate] =
+    loaders.parTraverse(_.resolveAndLoad(path, caller)).map(_.head)
 
   def renderTemplate(path: String): Option[String] =
-    renderTemplate(path, Frame.empty)
+    renderTemplate(path, Value.Obj.empty)
 
-  def renderTemplate(path: String, scope: Frame): Option[String] = {
-    load(path).map(_.render.runA(Context(this, scope)).value)
+  def renderTemplate(path: String, scope: Value.Obj): Option[String] = {
+    val context = Context(this)
+      .variables.set(scope.values.toSeq)
+    resolveAndLoad(path, None).toOption.map(_.template.render.runA(context).value)
   }
 
   def render(template: String): String =
@@ -22,25 +28,17 @@ abstract class Environment {
   def render(template: String, scope: Value.Obj): String = {
     // TODO handle errors
     import fastparse._
-    parse(template, TemplateParser.template(_)).get.value.render.runA(Context(this, Frame(scope).enter)).value
+    val context = Context(this)
+      .variables.set(scope.values.toSeq)
+    parse(template, TemplateParser.template(_)).get.value.render.runA(context).value
   }
-
-  def importTemplate(path: String): Option[Frame] =
-    load(path).map(_.render.runS(Context(this, Frame.empty)).value.scope)
 }
 
-final class ProvidedEnvironment(templates: Map[String, Template] = Map.empty) extends Environment {
+final class ProvidedEnvironment(loader: ProvidedLoader = new ProvidedLoader()) extends Environment(loader) {
 
   def add(name: String, template: Template): ProvidedEnvironment =
-    new ProvidedEnvironment(templates + (name -> template))
+    new ProvidedEnvironment(loader.add(name, template))
 
-  def add(name: String, template: String): ProvidedEnvironment = {
-    // TODO: handle errors
-    import fastparse._
-    val compiledTemplate = parse(template, TemplateParser.template(_)).get.value
-    add(name, compiledTemplate)
-  }
-
-  override def load(path: String): Option[Template] =
-    templates.get(path)
+  def add(name: String, template: String): ProvidedEnvironment =
+    new ProvidedEnvironment(loader.add(name, template))
 }

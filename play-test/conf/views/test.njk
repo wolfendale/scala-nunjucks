@@ -1,0 +1,39 @@
+{% extends "includes/layout.njk" %}
+
+{% from "govuk/components/back-link/macro.njk"     import govukBackLink %}
+{% from "govuk/components/checkboxes/macro.njk"    import govukCheckboxes %}
+{% from "govuk/components/button/macro.njk"        import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block pageTitle %}
+  {% set titlePrefix = 'Error: ' if errorSummary else "" %}
+  {{ titlePrefix + ' ' + 'Page Title' }}
+{% endblock %}
+
+{% block content %}
+
+  {{ govukBackLink({
+    text: 'Back'
+  }) }}
+
+  <div class="govuk-main-wrapper">
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-two-thirds">
+
+        {% from "govuk/components/input/macro.njk" import govukInput %}
+
+        {{ govukInput({
+          label: {
+            classes: " govuk-label--xl",
+            isPageHeading: true,
+            text: "Event name"
+          },
+          id: "event-name",
+          name: "event-name"
+        }) }}
+
+      </div>
+    </div>
+  </div>
+
+{% endblock %}

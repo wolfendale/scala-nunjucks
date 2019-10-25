@@ -3,6 +3,7 @@ package wolfendale.nunjucks
 import cats.data.NonEmptyList
 import fastparse._
 import wolfendale.nunjucks.expression.Parser
+import wolfendale.nunjucks.expression.syntax.AST
 
 object TemplateParser {
 
@@ -17,7 +18,7 @@ object TemplateParser {
 
     def expression = {
 
-      import SingleLineWhitespace._
+      import MultiLineWhitespace._
       P(openExpression ~ Parser.expression ~ closeExpression).map(TemplateNode.Expression)
     }
 
@@ -49,7 +50,7 @@ object TemplateParser {
         P(openTag ~ "endif" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(
         (`if` ~ partial)
           .map(TemplateNode.If.ConditionalContent.tupled) ~ (elif ~ partial)
@@ -80,7 +81,7 @@ object TemplateParser {
         P(openTag ~ "else" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ (`else` ~ partial).? ~ close).map(TemplateNode.For.tupled)
     }
 
@@ -108,7 +109,7 @@ object TemplateParser {
           P(openTag ~ "endset" ~ closeTag)
         }
 
-        import NunjucksWhitespace._
+        import NoWhitespace._
         P(open ~ partial ~ close)
       }.map(TemplateNode.SetBlock.tupled)
 
@@ -128,7 +129,7 @@ object TemplateParser {
       }
 
       def verbatim(tag: String) = {
-        import NunjucksWhitespace._
+        import NoWhitespace._
         P(open(tag) ~ (!close(tag) ~ AnyChar).rep.! ~ close(tag))
       }
 
@@ -150,16 +151,34 @@ object TemplateParser {
         P(openTag ~ "endmacro" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ close)
     }.map(TemplateNode.Macro.tupled)
 
     def callTag = {
 
+      def identifier = {
+        import SingleLineWhitespace._
+        sealed abstract class Access
+        final case class DirectAccess(identifier: AST.Identifier) extends Access
+        final case class ComputedAccess(identifier: AST.Expr)     extends Access
+        def directAccess   = P("." ~ Parser.identifier).map(DirectAccess)
+        def computedAccess = P("[" ~ Parser.expression ~ "]").map(ComputedAccess)
+        P(Parser.identifier ~ (directAccess | computedAccess).rep).map {
+          case (lhs, chunks) =>
+            chunks.foldLeft[AST.Expr](lhs) {
+              case (l, DirectAccess(identifier)) =>
+                AST.Access(l, identifier)
+              case (l, ComputedAccess(expr)) =>
+                AST.ComputedAccess(l, expr)
+            }
+        }
+      }
+
       def open = {
         import SingleLineWhitespace._
         P(
-          openTag ~ "call" ~ Parser.identifier ~ "(" ~ ((Parser.identifier ~ "=").? ~ Parser.expression)
+          openTag ~ "call" ~ ("(" ~ (Parser.identifier ~ ("=" ~ Parser.expression).?).rep(sep = ",").map(_.toMap) ~ ")").?.map(_.getOrElse(Map.empty)) ~ identifier ~ "(" ~ ((Parser.identifier ~ "=").? ~ Parser.expression)
             .rep(sep = ",") ~ ")" ~ closeTag)
       }
 
@@ -168,7 +187,7 @@ object TemplateParser {
         P(openTag ~ "endcall" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ close).map(TemplateNode.Call.tupled)
     }
 
@@ -178,16 +197,23 @@ object TemplateParser {
         .map(TemplateNode.Include.tupled)
     }
 
+    def withContext = {
+      import SingleLineWhitespace._
+      def withContext    = P("with").map(_ => true)
+      def withoutContext = P("without").map(_ => false)
+      P(" " ~ (withoutContext | withContext) ~ "context").?.map(_.getOrElse(false))
+    }
+
     def importTag = {
       import SingleLineWhitespace._
-      P(openTag ~ "import" ~ Parser.expression ~ "as" ~ Parser.identifier ~ closeTag)
+      P(openTag ~ "import" ~ Parser.expression ~ "as" ~ Parser.identifier ~~ withContext ~ closeTag)
     }.map(TemplateNode.Import.tupled)
 
     def fromTag = {
       import SingleLineWhitespace._
       P(
         openTag ~ "from" ~ Parser.expression ~ "import" ~ (Parser.identifier ~ ("as" ~ Parser.identifier).?)
-          .rep(1, sep = ",") ~ closeTag)
+          .rep(1, sep = ",") ~~ withContext ~ closeTag)
         .map(TemplateNode.From.tupled)
     }
 
@@ -203,7 +229,7 @@ object TemplateParser {
         P(openTag ~ "endblock" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ close)
         .map(TemplateNode.Block.tupled)
     }
@@ -222,7 +248,7 @@ object TemplateParser {
         P(openTag ~ "endfilter" ~ closeTag)
       }
 
-      import NunjucksWhitespace._
+      import NoWhitespace._
       P(open ~ partial ~ close)
         .map(TemplateNode.Filter.tupled)
     }
@@ -246,7 +272,7 @@ object TemplateParser {
   }
 
   def template[_: P]: P[Template] = {
-    import NunjucksWhitespace._
+    import NoWhitespace._
     def rootTemplate  = P(partial.? ~ End).map(RootTemplate)
     def childTemplate = P(extendsTag.map(_.expr) ~ partial.? ~ End).map(ChildTemplate.tupled)
     def complexTemplate =
@@ -261,10 +287,10 @@ object NunjucksWhitespace {
   // TODO: potentially refactor out mutable state
   // TODO: include whitespace rules for inside tags and expressions?
   implicit val whitespace: (ParsingRun[_] => ParsingRun[Unit]) = { implicit ctx =>
-    val close  = "-[}#%]}"
-    val open   = "\\{[{#%]-"
-    val input  = ctx.input
-    var index  = ctx.index
+    val close = "-[}#%]}"
+    val open  = "\\{[{#%]-"
+    val input = ctx.input
+    var index = ctx.index
     if (input.slice(index - 3, index).matches(close)) {
       while (input.isReachable(index) &&
              (input(index) match {

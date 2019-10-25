@@ -13,5 +13,10 @@ class UpperSpec extends FreeSpec with MustMatchers {
 
       environment.render("""{{ "fOObAr" | upper}}""") mustEqual "FOOBAR"
     }
+
+    "must maintain the safe flag" in {
+
+      environment.render("""{{ 'foo<br/>bar' | safe | upper }}""") mustEqual "FOO<BR/>BAR"
+    }
   }
 }

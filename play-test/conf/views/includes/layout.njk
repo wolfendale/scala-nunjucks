@@ -1,0 +1,23 @@
+{% extends "govuk/template.njk" %}
+{% from "govuk/components/header/macro.njk" import govukHeader -%}
+{%- set assetPath = "/assets/lib/govuk-frontend/govuk/assets" -%}
+
+{% block head %}
+  {% include "includes/head.njk" %}
+{% endblock %}
+
+{% block header %}
+  {{ govukHeader({
+    homepageUrl: "/",
+    serviceName: "Nunjucks Viewmodels Example",
+    serviceUrl: "/",
+    containerClasses: "govuk-width-container",
+    assetsPath: "/assets"
+  }) }}
+{% endblock %}
+
+{% block bodyEnd %}
+  {% block scripts %}
+    {% include "includes/scripts.njk" %}
+  {% endblock %}
+{% endblock %}

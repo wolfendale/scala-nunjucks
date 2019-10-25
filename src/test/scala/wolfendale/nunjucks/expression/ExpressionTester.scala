@@ -8,7 +8,7 @@ import wolfendale.nunjucks.expression.syntax.AST
 class ExpressionTester(environment: Environment = new ProvidedEnvironment()) {
 
   def evaluate(expression: String, scope: Value.Obj = Value.Obj.empty): Value = {
-    ast(expression).get.value.eval(Context(environment, Frame(scope)))
+    ast(expression).get.value.eval.runA(Context(environment, Frame(scope))).value
   }
 
   def ast(expression: String): Parsed[AST.Expr] = {

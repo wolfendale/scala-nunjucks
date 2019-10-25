@@ -1,6 +1,6 @@
 package wolfendale.nunjucks.expression
 
-import fastparse.SingleLineWhitespace._
+import fastparse.MultiLineWhitespace._
 import fastparse._
 import wolfendale.nunjucks.expression.syntax.AST
 import wolfendale.nunjucks.expression.syntax.AST.RegexFlag
@@ -27,7 +27,7 @@ object Parser {
       def call =
         P(
           "(" ~ ((identifier ~ "=").? ~ expression)
-            .rep(sep = ","./) ~ ")").map(Call)
+            .rep(sep = ",") ~ ")").map(Call)
       P(group ~ (directAccess | computedAccess | call).rep).map {
         case (lhs, chunks) =>
           chunks.foldLeft(lhs) {

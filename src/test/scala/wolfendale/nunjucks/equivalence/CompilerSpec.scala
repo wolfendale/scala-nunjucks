@@ -1,5 +1,6 @@
 package wolfendale.nunjucks.equivalence
 
+import cats.data.State
 import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
 import wolfendale.nunjucks.ProvidedEnvironment
 import wolfendale.nunjucks.expression.runtime.Value
@@ -45,7 +46,7 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
     .add("base-set-wraps-block.njk", "{% set somevar %}{% block somevar %}{% endblock %}{% endset %}{{ somevar }}\n")
     .add("base3.njk", "{% block block1 %}<b>Foo</b>{% endblock %}")
     .add("undefined-macro.njk", "{{ undef() }}")
-    .add("filter-block.njk", "may the {% filter replace(\"force\", \"forth\") %}{% block block1 %}bar{% endblock %}{% endfilter %} be with you\n")
+    .add("filter-block.html", "may the {% filter replace(\"force\", \"forth\") %}{% block block1 %}bar{% endblock %}{% endfilter %} be with you\n")
 
   "compiler" - {
 
@@ -125,8 +126,8 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
     "should compile function calls" in {
 
       val fn = Value.Function {
-        case (_, args) =>
-          Value.Str(args.get(0).map(_.toStr.value).getOrElse("") + "hi")
+        args =>
+          State.pure(Value.Str(args.get(0).map(_.toStr.value).getOrElse("") + "hi"))
       }
 
       environment.render("{{ foo(\"msg\") }}", Value.Obj(
@@ -525,8 +526,8 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
     environment.render("{% if 0 === false %}yes{% endif %}") mustEqual ""
 
     val fn = Value.Function {
-      case (_, args) =>
-        args.get(0).map(_.toNumeric).getOrElse(Value.Number(0)) - Value.Number(1)
+      case args =>
+        State.pure(args.get(0).map(_.toNumeric).getOrElse(Value.Number(0)) - Value.Number(1))
     }
 
     environment.render("{% if foo(20) > bar %}yes{% endif %}", Value.Obj(
@@ -772,7 +773,7 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
       "<li>{{ caller(i) }}</li>" +
       "{% endfor %}</ul>" +
       "{% endmacro %}" +
-      "{% call(items) list([\"a\", \"b\"]) %}{{ item }}{% endcall %}"
+      "{% call(item) list([\"a\", \"b\"]) %}{{ item }}{% endcall %}"
 
     environment.render(template) mustEqual "<ul><li>a</li><li>b</li></ul>"
   }
@@ -892,9 +893,10 @@ class CompilerSpec extends FreeSpec with MustMatchers with OptionValues {
     var count = 0
 
     val fn = Value.Function {
-      (_, _) =>
+      _ => State.pure {
         count += 1
         Value.Undefined
+      }
     }
 
     environment.render(
