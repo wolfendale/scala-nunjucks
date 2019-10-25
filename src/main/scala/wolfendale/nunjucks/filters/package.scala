@@ -87,7 +87,16 @@ package object filters {
     _.toStr.copy(safe = true)
   }
 
-  val indent: Filter = Filter {x => x}
+  val indent: Filter = Filter {
+    (input, args) => {
+      val count : Int = Math.min(args.get(0).map(_.toNumeric) match {
+        case Some(Number(value)) => value.toInt
+        case _ => 2
+      }, 1000)
+
+      Str(input.toStr.value.replace("\n", "\n" + " " * count))
+    }
+  }
 
   lazy val defaults: Map[String, Filter] = Map(
     "abs"        -> abs,
