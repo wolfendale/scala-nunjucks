@@ -44,6 +44,24 @@ class ImportTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
       env.renderTemplate("test.njk").value mustEqual "undefinedbar"
     }
+
+    "must modify the calling context when an importing with context" in {
+
+      val env = environment
+        .add("import.njk", "{% set foo = 'bar' %}")
+        .add("test.njk", "{% set foo = 'foo' %}{% import 'import.njk' as imp with context %}{{ foo }}{{ imp.foo }}")
+
+      env.renderTemplate("test.njk").value mustEqual "barbar"
+    }
+
+    "must not modify the calling context when importing without context" in {
+
+      val env = environment
+        .add("import.njk", "{% set foo = 'bar' %}")
+        .add("test.njk", "{% set foo = 'foo' %}{% import 'import.njk' as imp without context %}{{ foo }}{{ imp.foo }}")
+
+      env.renderTemplate("test.njk").value mustEqual "foobar"
+    }
   }
 
   "a from tag" - {
@@ -91,6 +109,24 @@ class ImportTagSpec extends FreeSpec with MustMatchers with OptionValues {
         .add("test.njk", "{% from 'import.njk' import foo, bar as baz %}{{ foo }}{{ baz }}")
 
       env.renderTemplate("test.njk").value mustEqual "12"
+    }
+
+    "must modify the calling context when an importing with context" in {
+
+      val env = environment
+        .add("import.njk", "{% set foo = 'bar' %}")
+        .add("test.njk", "{% set foo = 'foo' %}{% from 'import.njk' import foo as bar with context %}{{ foo }}{{ bar }}")
+
+      env.renderTemplate("test.njk").value mustEqual "barbar"
+    }
+
+    "must not modify the calling context when importing without context" in {
+
+      val env = environment
+        .add("import.njk", "{% set foo = 'bar' %}")
+        .add("test.njk", "{% set foo = 'foo' %}{% from 'import.njk' import foo as bar without context %}{{ foo }}{{ bar }}")
+
+      env.renderTemplate("test.njk").value mustEqual "foobar"
     }
   }
 }

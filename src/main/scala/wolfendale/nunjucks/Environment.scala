@@ -17,9 +17,12 @@ class Environment(loaders: NonEmptyChain[Loader]) {
     renderTemplate(path, Value.Obj.empty)
 
   def renderTemplate(path: String, scope: Value.Obj): Option[String] = {
-    val context = Context(this)
-      .variables.set(scope.values.toSeq)
-    resolveAndLoad(path, None).toOption.map(_.template.render.runA(context).value)
+    resolveAndLoad(path, None).toOption.map { resolvedTemplate =>
+      val context = Context(this, RenderMode.Template)
+          .variables.set(scope.values.toSeq)
+          .path.set(Some(resolvedTemplate.path))
+      resolvedTemplate.template.render.runA(context).value
+    }
   }
 
   def render(template: String): String =
@@ -28,7 +31,7 @@ class Environment(loaders: NonEmptyChain[Loader]) {
   def render(template: String, scope: Value.Obj): String = {
     // TODO handle errors
     import fastparse._
-    val context = Context(this)
+    val context = Context(this, RenderMode.Template)
       .variables.set(scope.values.toSeq)
     parse(template, TemplateParser.template(_)).get.value.render.runA(context).value
   }

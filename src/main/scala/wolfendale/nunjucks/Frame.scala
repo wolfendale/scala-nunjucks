@@ -15,11 +15,11 @@ sealed abstract class Frame {
         m.set(k, v, resolveUp)
     }
 
-  def value: Value.Obj
-
   def resolve(key: String): Option[Frame]
 
   def isRoot: Boolean
+
+  def values: Map[String, Value]
 }
 
 final case class RootFrame(values: Map[String, Value]) extends Frame {
@@ -29,9 +29,6 @@ final case class RootFrame(values: Map[String, Value]) extends Frame {
 
   override def pop: RootFrame =
     throw new RuntimeException("escaped root scope")
-
-  override def value: Value.Obj =
-    Value.Obj(values)
 
   override def set(key: String, value: Value, resolveUp: Boolean): Frame =
     RootFrame(values + (key -> value))
@@ -68,9 +65,6 @@ final case class ChildFrame(values: Map[String, Value], parent: Frame) extends F
     } else {
       Frame(values + (key -> value), parent)
     }
-
-  override def value: Value.Obj =
-    parent.value merge Value.Obj(values)
 
   override def resolve(key: String): Option[Frame] =
     if (values.get(key).isDefined) Some(this) else parent.resolve(key)

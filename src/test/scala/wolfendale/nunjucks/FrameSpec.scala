@@ -70,35 +70,5 @@ class FrameSpec extends FreeSpec with MustMatchers with OptionValues {
         scope.pop.get("foo") mustEqual Value.Str("rab")
       }
     }
-
-    "value" - {
-
-      "must flatten scopes into an object value" in {
-
-        val result = Frame.empty
-          .set("baz", Value.Str("quux"), resolveUp = false)
-          .push
-          .set("foo", Value.Str("bar"), resolveUp = false)
-
-        result.value mustEqual Value.Obj(
-          "foo" -> Value.Str("bar"),
-          "baz" -> Value.Str("quux")
-        )
-      }
-
-      "must resolve conflicts by preferring the most specific scope" in {
-
-        val result = Frame.empty
-          .set("foo", Value.Str("rab"), resolveUp = false)
-          .set("fork", Value.Str("spoon"), resolveUp = false)
-          .push
-          .set("foo", Value.Str("bar"), resolveUp = false)
-
-        result.value mustEqual Value.Obj(
-          "foo" -> Value.Str("bar"),
-          "fork" -> Value.Str("spoon")
-        )
-      }
-    }
   }
 }

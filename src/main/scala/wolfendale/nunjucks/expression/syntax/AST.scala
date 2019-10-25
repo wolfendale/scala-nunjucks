@@ -73,7 +73,7 @@ object AST {
 
     override def eval: State[Context, Value] =
       State.inspect { context =>
-        context.get(value)
+        context.getFrameOrVariable(value)
       }
   }
 
