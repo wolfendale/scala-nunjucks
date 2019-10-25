@@ -5,6 +5,7 @@ import cats.data._
 import cats.implicits._
 import wolfendale.nunjucks.TemplateNode.Partial
 import wolfendale.nunjucks.expression.runtime.Value
+import wolfendale.nunjucks.expression.syntax.AST
 
 // TODO: allow for custom Tags
 
@@ -22,6 +23,8 @@ object TemplateNode {
     State.modify(_.frame.pop)
 
   final case class Partial(contents: Seq[TemplateNode]) extends TemplateNode {
+
+    def isEmpty: Boolean = contents.isEmpty
 
     override def eval: State[Context, String] =
       contents.foldLeft(State.pure[Context, String]("")) { (m, n) =>
@@ -87,6 +90,42 @@ object TemplateNode {
   object If {
 
     final case class ConditionalContent(condition: expression.syntax.AST, content: Partial)
+  }
+
+
+  final case class Switch(exprToMatch:expression.syntax.AST.Expr, matchConditions: Seq[Switch.ConditionalContent], default: Option[Partial]) extends Tag {
+
+    require(default.isDefined || matchConditions.nonEmpty)
+
+    override def eval: State[Context, String] = {
+
+      val all: Seq[Switch.ConditionalContent] = default
+        .map(matchConditions :+ Switch.ConditionalContent(Seq(exprToMatch), _))
+        .getOrElse(matchConditions)
+
+      val collapsedConditionals = all.foldRight(Seq.empty[Switch.ConditionalContent]){
+        (m, n) => if(m.content.isEmpty && n.nonEmpty){
+          val last = n.head
+          Switch.ConditionalContent(last.condition ++ m.condition, last.content) +: n.tail
+        }else {
+          m +: n
+        }
+      }
+
+      collapsedConditionals.foldLeft(State.pure[Context, Option[String]](None)) { (m, n) =>
+        m.flatMap {
+          case None =>
+            Monad[State[Context, *]].ifM(State.inspect(context => n.condition.exists(_.eval(context).equals(exprToMatch.eval(context)))))(
+              ifTrue = n.content.eval.map(_.some),
+              ifFalse = State.pure(None))
+          case some => State.pure(some)
+        }
+      }
+      }.map(_.getOrElse(""))
+  }
+
+  object Switch {
+    final case class ConditionalContent(condition: Seq[expression.syntax.AST], content: Partial)
   }
 
   final case class For(identifiers: Seq[expression.syntax.AST.Identifier],

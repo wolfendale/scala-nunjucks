@@ -52,14 +52,49 @@ object TemplateParser {
 
       import NoWhitespace._
       P(
-        (`if` ~ partial)
-          .map(TemplateNode.If.ConditionalContent.tupled) ~ (elif ~ partial)
-          .map(TemplateNode.If.ConditionalContent.tupled)
-          .rep ~ (`else` ~ partial).? ~ endIf)
+        (`if` ~ partial).map(TemplateNode.If.ConditionalContent.tupled)
+          ~ (elif ~ partial).map(TemplateNode.If.ConditionalContent.tupled).rep
+          ~ (`else` ~ partial).?
+          ~ endIf
+      )
         .map {
           case (x, xs, e) =>
             TemplateNode.If(x +: xs, e)
         }
+    }
+
+    def switchTag: P[TemplateNode.Switch] = {
+      def switch = {
+        import MultiLineWhitespace._
+        P( openTag ~ "switch" ~/ Parser.expression ~ closeTag)
+      }
+
+      def `case` = {
+        import MultiLineWhitespace._
+        P( openTag ~ "case" ~/ Parser.expression ~ closeTag)
+      }
+
+      def `default` = {
+        import MultiLineWhitespace._
+        P( openTag ~ "default" ~ closeTag)
+      }
+
+      def endSwitch = {
+        import MultiLineWhitespace._
+        P( openTag ~ "endswitch" ~ closeTag)
+      }
+
+      import MultiLineWhitespace._
+      P(
+        switch
+          ~ (`case` ~ partial).map(a => TemplateNode.Switch.ConditionalContent(Seq(a._1), a._2)).rep
+          ~ (`default` ~ partial).?
+          ~ endSwitch)
+        .map {
+          case (x, xs, e) =>
+            TemplateNode.Switch(x, xs, e)
+        }
+
     }
 
     def forTag = {
@@ -254,7 +289,7 @@ object TemplateParser {
     }
 
     def tag: P[TemplateNode.Tag] =
-      P(ifTag | forTag | setTag | verbatimTag | macroTag | callTag | includeTag | importTag | fromTag | blockTag | filterTag)
+      P(ifTag | switchTag | forTag | setTag | verbatimTag | macroTag | callTag | includeTag | importTag | fromTag | blockTag | filterTag)
 
     import NoWhitespace._
     def literal = {
