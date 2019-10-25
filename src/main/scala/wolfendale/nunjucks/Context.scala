@@ -3,11 +3,22 @@ package wolfendale.nunjucks
 import wolfendale.nunjucks.expression.runtime.Value
 
 final case class Context(environment: Environment,
+                         private val _renderMode: RenderMode,
                          private val _frame: Frame = Frame.empty,
                          private val _variables: Map[String, Value] = Map.empty,
                          private val _blocks: Map[String, Vector[TemplateNode.Partial]] = Map.empty,
                          private val _filters: Map[String, Filter] = wolfendale.nunjucks.filters.defaults,
                          private val _path: Option[String] = None) {
+
+
+  def empty: Context =
+    empty(_renderMode)
+
+  def empty(renderMode: RenderMode): Context =
+    Context(environment, renderMode)
+
+  def exports: Context.ExportsProjection =
+    Context.ExportsProjection(this)
 
   def variables: Context.VariablesProjection =
     Context.VariablesProjection(this)
@@ -24,7 +35,10 @@ final case class Context(environment: Environment,
   def path: Context.PathProjection =
     Context.PathProjection(this)
 
-  def set(key: String, value: Value, resolveUp: Boolean): Context =
+  def renderMode: Context.RenderModeProjection =
+    Context.RenderModeProjection(this)
+
+  def setFrameAndVariable(key: String, value: Value, resolveUp: Boolean): Context =
     if (_frame.isRoot) {
       this
         .frame.set(key, value, resolveUp)
@@ -33,7 +47,7 @@ final case class Context(environment: Environment,
       frame.set(key, value, resolveUp)
     }
 
-  def get(key: String): Value =
+  def getFrameOrVariable(key: String): Value =
     frame.get(key) orElse variables.get(key)
 }
 
@@ -61,6 +75,9 @@ object Context {
 
     def get(key: String): Value =
       context._variables.getOrElse(key, Value.Undefined)
+
+    def getAll: Map[String, Value] =
+      context._variables
   }
 
   final case class FrameProjection(context: Context) {
@@ -85,6 +102,12 @@ object Context {
 
     def push: Context =
       context.copy(_frame = context._frame.push)
+
+    def push(frame: Frame): Context =
+      push(frame.values)
+
+    def push(values: Map[String, Value]): Context =
+      context.copy(_frame = Frame(values, context._frame))
 
     def pop: Context =
       context.copy(_frame = context._frame.pop)
@@ -116,4 +139,27 @@ object Context {
     def set(path: Option[String]): Context =
       context.copy(_path = path)
   }
+
+  final case class RenderModeProjection(context: Context) {
+
+    def get: RenderMode =
+      context._renderMode
+
+    def set(renderMode: RenderMode): Context =
+      context.copy(_renderMode = renderMode)
+  }
+}
+
+sealed abstract class RenderMode {
+
+  def withContext: Boolean
+}
+
+object RenderMode {
+
+  case object Template extends RenderMode {
+    override val withContext: Boolean = true
+  }
+
+  final case class Import(withContext: Boolean) extends RenderMode
 }

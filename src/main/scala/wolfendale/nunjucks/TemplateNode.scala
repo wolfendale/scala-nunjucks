@@ -179,7 +179,7 @@ object TemplateNode {
       for {
         value <- expr.eval
         _ <- names.foldLeft(State.pure[Context, Unit](())) { (m, n) =>
-              m.flatMap(_ => State.modify(_.set(n.value, value, resolveUp = true)))
+              m.flatMap(_ => State.modify(_.setFrameAndVariable(n.value, value, resolveUp = true)))
             }
       } yield ""
   }
@@ -208,12 +208,12 @@ object TemplateNode {
 
     override def eval: State[Context, String] =
       State
-        .modify[Context] { context =>
-          val body = Value.Function { parameters =>
+        .modify[Context] { definingContext =>
+          lazy val body: Value.Function = Value.Function { parameters =>
             State[Context, Value] { callingContext =>
               val defaultArguments = args.flatMap {
                 case (id, value) =>
-                  value.map(id.value -> _.eval.runA(context).value)
+                  value.map(id.value -> _.eval.runA(definingContext).value)
               }
 
               val byNameParameters = parameters.parameters.toList
@@ -226,22 +226,43 @@ object TemplateNode {
                 .zip(parameters.parameters.toList.mapFilter(param =>
                   if (param.name.isEmpty) Some(param.value) else None))
 
+              val caller = Map(
+                "caller" -> callingContext.frame.get("caller")
+              )
+
               val completeParameters =
-                (defaultArguments ++ byNameParameters ++ positionalParameters).toList
+                (defaultArguments ++ byNameParameters ++ positionalParameters ++ caller).toList
 
-              val result = for {
-                c      <- State.get[Context]
-                _      <- State.modify[Context](_.frame.empty.frame.set(completeParameters, resolveUp = false))
-                _      <- State.modify[Context](_.frame.set("caller", c.frame.get("caller"), resolveUp = false))
-                result <- content.eval
-                _      <- State.modify[Context](_.frame.set(c.frame.get))
-              } yield Value.Str(result, safe = true)
+              val definingContextWithCallingVariables =
+                if (definingContext.renderMode.get.withContext) {
+                  definingContext
+                    .variables.set(callingContext.variables.getAll.toSeq)
+                } else {
+                  definingContext
+                    .setFrameAndVariable(identifier.value, body, resolveUp = false)
+                }
 
-              result.run(callingContext).value
+              val executingContext = definingContextWithCallingVariables
+                .frame.set(completeParameters, resolveUp = false)
+
+              val (executedContext, result) = content.eval.run(executingContext).value
+
+              val addedVariables =
+                executedContext.variables.getAll.toSet diff definingContextWithCallingVariables.variables.getAll.toSet
+
+              val resultContext =
+                if (definingContext.renderMode.get.withContext) {
+                  callingContext.variables
+                    .set(callingContext.variables.getAll.toSeq ++ addedVariables)
+                } else {
+                  callingContext
+                }
+
+              (resultContext, Value.Str(result, safe = true))
             }
           }
 
-          context.set(identifier.value, body, resolveUp = false)
+          definingContext.setFrameAndVariable(identifier.value, body, resolveUp = false)
         }
         .map(_ => "")
   }
@@ -326,18 +347,29 @@ object TemplateNode {
           context.environment
             .resolveAndLoad(partial, context.path.get)
             .map { resolvedTemplate =>
-              val scope = resolvedTemplate.template.render
-                .runS {
-                  context.path
-                    .set(Some(resolvedTemplate.path))
-                    .frame
-                    .set(if (withContext) context.frame.get else Frame.empty)
-                }
-                .value
-                .frame
-                .get
-                .value
-              context.frame.set(identifier.value, scope, resolveUp = false)
+              if (withContext) {
+
+                val updatedContext = resolvedTemplate.template.render
+                  .runS {
+                    context
+                      .path.set(Some(resolvedTemplate.path))
+                      .renderMode.set(RenderMode.Import(withContext = true))
+                  }
+                  .value
+
+                updatedContext.frame.set(identifier.value, Value.Obj(updatedContext.exports.get), resolveUp = false)
+              } else {
+
+                val importedContext = resolvedTemplate.template.render
+                  .runS {
+                    context.empty
+                      .path.set(Some(resolvedTemplate.path))
+                      .renderMode.set(RenderMode.Import(withContext = false))
+                  }
+                  .value
+
+                context.frame.set(identifier.value, Value.Obj(importedContext.exports.get), resolveUp = false)
+              }
             }
             .leftMap { paths =>
               throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
@@ -359,22 +391,39 @@ object TemplateNode {
           context.environment
             .resolveAndLoad(partial, context.path.get)
             .map { resolvedTemplate =>
-              val scope = resolvedTemplate.template.render
-                .runS {
-                  context.path
-                    .set(Some(resolvedTemplate.path))
-                    .frame
-                    .set(if (withContext) context.frame.get else Frame.empty)
+              if (withContext) {
+
+                val updatedContext = resolvedTemplate.template.render
+                  .runS {
+                    context
+                      .path.set(Some(resolvedTemplate.path))
+                      .renderMode.set(RenderMode.Import(withContext = true))
+                  }
+                  .value
+
+                val values = identifiers.map {
+                  case (key, preferred) =>
+                    preferred.getOrElse(key).value -> updatedContext.getFrameOrVariable(key.value)
                 }
-                .value
-                .frame
-                .get
-                .value
-              val values = identifiers.map {
-                case (key, preferred) =>
-                  preferred.getOrElse(key).value -> scope.get(key.value)
+
+                updatedContext.frame.set(values, resolveUp = false)
+              } else {
+
+                val importedContext = resolvedTemplate.template.render
+                  .runS {
+                    context.empty
+                      .path.set(Some(resolvedTemplate.path))
+                      .renderMode.set(RenderMode.Import(withContext = false))
+                  }
+                  .value
+
+                val values = identifiers.map {
+                  case (key, preferred) =>
+                    preferred.getOrElse(key).value -> importedContext.getFrameOrVariable(key.value)
+                }
+
+                context.frame.set(values, resolveUp = false)
               }
-              context.frame.set(values, resolveUp = false)
             }
             .leftMap { paths =>
               throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")

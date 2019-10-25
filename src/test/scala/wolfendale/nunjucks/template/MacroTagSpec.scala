@@ -91,6 +91,24 @@ class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
       result mustEqual "123456789"
     }
 
+    "must have access to the root template context when imported with context" in {
+
+      val env = environment
+        .add("import.njk", "{% macro foo() %}{{ bar }}{% endmacro %}")
+        .add("test.njk", "{% set bar = 'foo' %}{% import 'import.njk' as imp with context %}{{ imp.foo() }}")
+
+      env.renderTemplate("test.njk").value mustEqual "foo"
+    }
+
+    "must not have access to the root template context when imported without context" in {
+
+      val env = environment
+        .add("import.njk", "{% macro foo() %}{{ bar }}{% endmacro %}")
+        .add("test.njk", "{% set bar = 'foo' %}{% import 'import.njk' as imp %}{{ imp.foo() }}")
+
+      env.renderTemplate("test.njk").value mustEqual ""
+    }
+
     "must locate the right include from a macro call" in {
 
       val environment = new ProvidedEnvironment()
