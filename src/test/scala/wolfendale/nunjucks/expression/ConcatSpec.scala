@@ -49,6 +49,10 @@ class ConcatSpec extends FreeSpec with MustMatchers {
       tester.evaluate("(1/0) ~ 'world'") mustEqual Value.Str("Infinityworld")
     }
 
+    "concatenation of strings with spaces is consistent" in {
+      tester.evaluate("'hello ' ~ 'world'") mustEqual tester.evaluate("'hello' ~ ' world'")
+    }
+
   }
 
 }
