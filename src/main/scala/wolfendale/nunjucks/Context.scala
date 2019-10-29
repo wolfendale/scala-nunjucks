@@ -44,7 +44,7 @@ final case class Context(environment: Environment,
     }
 
   def getFrameOrVariable(key: String): Value =
-    frame.get(key) orElse variables.get(key)
+    frame.get(key) orElse variables.get(key) orElse environment.getGlobal(key)
 }
 
 object Context {
