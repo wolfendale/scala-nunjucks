@@ -87,6 +87,10 @@ package object filters {
     _.toStr.copy(safe = true)
   }
 
+  val title: Filter = Filter { value =>
+    mapString(value, _.split(" ").map(_.toLowerCase.capitalize).mkString(" "))
+  }
+
   val noop: Filter = Filter {
     a => a
   }
@@ -103,7 +107,8 @@ package object filters {
     "d"          -> default,
     "string"     -> string,
     "safe"       -> safe,
-    "indent"     -> noop
+    "indent"     -> noop,
+    "title"      -> title
   )
 
   private def mapString(value: Value, f: String => String): Value.Str = {
