@@ -7,11 +7,16 @@ import wolfendale.nunjucks.expression.runtime.Value
 
 class Environment(
                    loaders: NonEmptyChain[Loader],
-                   filters: Map[String, Filter]
+                   filters: Map[String, Filter],
+                   globals: Map[String, Value]
                  ) {
 
   def this(loader: Loader, rest: Loader*) =
-    this(NonEmptyChain(loader, rest: _*), wolfendale.nunjucks.filters.defaults)
+    this(
+      loaders = NonEmptyChain(loader, rest: _*),
+      filters = wolfendale.nunjucks.filters.defaults,
+      globals = wolfendale.nunjucks.globals.defaults
+    )
 
   def resolveAndLoad(path: String, caller: Option[String]): Either[List[String], Loader.ResolvedTemplate] =
     loaders.parTraverse(_.resolveAndLoad(path, caller)).map(_.head)
@@ -41,9 +46,16 @@ class Environment(
 
   def getFilter(identifier: String): Option[Filter] =
     filters.get(identifier)
+
+  def getGlobal(identifier: String): Value =
+    globals.getOrElse(identifier, Value.Undefined)
 }
 
-final class ProvidedEnvironment(loader: ProvidedLoader = new ProvidedLoader()) extends Environment(loader) {
+final class ProvidedEnvironment(
+                                 loader: ProvidedLoader = new ProvidedLoader(),
+                                 filters: Map[String, Filter] = wolfendale.nunjucks.filters.defaults,
+                                 globals: Map[String, Value] = wolfendale.nunjucks.globals.defaults
+                               ) extends Environment(NonEmptyChain.one(loader), filters, globals) {
 
   def add(name: String, template: Template): ProvidedEnvironment =
     new ProvidedEnvironment(loader.add(name, template))
