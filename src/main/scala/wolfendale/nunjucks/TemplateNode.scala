@@ -391,6 +391,7 @@ object TemplateNode {
           context.environment
             .resolveAndLoad(partial, context.path.get)
             .map { resolvedTemplate =>
+
               if (withContext) {
 
                 val updatedContext = resolvedTemplate.template.render
@@ -403,7 +404,14 @@ object TemplateNode {
 
                 val values = identifiers.map {
                   case (key, preferred) =>
-                    preferred.getOrElse(key).value -> updatedContext.getFrameOrVariable(key.value)
+                    preferred.getOrElse(key).value -> {
+                      val value = updatedContext.getFrameOrVariable(key.value)
+                      if (value.isDefined) {
+                        value
+                      } else {
+                        throw new RuntimeException(s"`$key` not defined in `${resolvedTemplate.path}`")
+                      }
+                    }
                 }
 
                 updatedContext.frame.set(values, resolveUp = false)
@@ -419,7 +427,14 @@ object TemplateNode {
 
                 val values = identifiers.map {
                   case (key, preferred) =>
-                    preferred.getOrElse(key).value -> importedContext.getFrameOrVariable(key.value)
+                    preferred.getOrElse(key).value -> {
+                      val value = importedContext.getFrameOrVariable(key.value)
+                      if (value.isDefined) {
+                        value
+                      } else {
+                        throw new RuntimeException(s"`$key` not defined in `${resolvedTemplate.path}`")
+                      }
+                    }
                 }
 
                 context.frame.set(values, resolveUp = false)
