@@ -39,3 +39,15 @@ lazy val playTest = (project in file("play-test"))
     uglifyCompressOptions := Seq("unused=false", "dead_code=false"),
     pipelineStages in Assets := Seq(concat,uglify)
   )
+
+lazy val playNunjucks = (project in file("play-nunjucks"))
+  .dependsOn(lib)
+  .settings(
+    name := "play-nunjucks",
+    version := "0.1.0",
+    scalaVersion := "2.11.12",
+    libraryDependencies ++= Seq(
+      "org.scalatest" %% "scalatest" % "3.0.8" % Test,
+      "com.typesafe.play" %% "play" % PlayVersion.current
+    )
+  )
