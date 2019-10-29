@@ -62,6 +62,13 @@ class ImportTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
       env.renderTemplate("test.njk").value mustEqual "foobar"
     }
+
+    "must fail when attempting to import a template which doesn't exist" in {
+
+      assertThrows[RuntimeException] {
+        environment.render("{% import 'foo.njk' as foo %}")
+      }
+    }
   }
 
   "a from tag" - {
@@ -127,6 +134,23 @@ class ImportTagSpec extends FreeSpec with MustMatchers with OptionValues {
         .add("test.njk", "{% set foo = 'foo' %}{% from 'import.njk' import foo as bar without context %}{{ foo }}{{ bar }}")
 
       env.renderTemplate("test.njk").value mustEqual "foobar"
+    }
+
+    "must fail when attempting to import a template which doesn't exist" in {
+
+      assertThrows[RuntimeException] {
+        environment.render("{% from 'foo.njk' import foo %}")
+      }
+    }
+
+    "must fail when attempting to import a value which doesn't exist in a template" in {
+
+      val env = environment
+        .add("import.njk", "{% set foo = 'bar' %}")
+
+      assertThrows[RuntimeException] {
+        env.render("{% from 'import.njk' import bar %}")
+      }
     }
   }
 }
