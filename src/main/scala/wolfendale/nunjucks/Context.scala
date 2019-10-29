@@ -7,7 +7,6 @@ final case class Context(environment: Environment,
                          private val _frame: Frame = Frame.empty,
                          private val _variables: Map[String, Value] = Map.empty,
                          private val _blocks: Map[String, Vector[TemplateNode.Partial]] = Map.empty,
-                         private val _filters: Map[String, Filter] = wolfendale.nunjucks.filters.defaults,
                          private val _path: Option[String] = None) {
 
 
@@ -28,9 +27,6 @@ final case class Context(environment: Environment,
 
   def blocks: Context.BlockProjection =
     Context.BlockProjection(this)
-
-  def filters: Context.FilterProjection =
-    Context.FilterProjection(this)
 
   def path: Context.PathProjection =
     Context.PathProjection(this)
@@ -120,15 +116,6 @@ object Context {
 
     def push(key: String, block: TemplateNode.Partial): Context =
       context.copy(_blocks = context._blocks + (key -> (block +: get(key))))
-  }
-
-  final case class FilterProjection(context: Context) {
-
-    def get(key: String): Option[Filter] =
-      context._filters.get(key)
-
-    def set(key: String, filter: Filter): Context =
-      context.copy(_filters = context._filters + (key -> filter))
   }
 
   final case class PathProjection(context: Context) {

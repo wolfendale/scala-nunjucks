@@ -467,8 +467,8 @@ object TemplateNode {
                        Value.Function.Parameter(k.map(_.value), v.eval.runA(context).value)
                    })
 
-                   context.filters
-                     .get(identifier.value)
+                   context.environment
+                     .getFilter(identifier.value)
                      .map(_.apply(context.frame.get, expression.runtime.Value.Str(content), parameters))
                      .getOrElse(throw new RuntimeException(s"No filter with name: ${identifier.value}"))
                      .toStr

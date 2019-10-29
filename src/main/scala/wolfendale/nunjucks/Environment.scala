@@ -5,10 +5,13 @@ import cats.data._
 import cats.implicits._
 import wolfendale.nunjucks.expression.runtime.Value
 
-class Environment(loaders: NonEmptyChain[Loader]) {
+class Environment(
+                   loaders: NonEmptyChain[Loader],
+                   filters: Map[String, Filter]
+                 ) {
 
   def this(loader: Loader, rest: Loader*) =
-    this(NonEmptyChain(loader, rest: _*))
+    this(NonEmptyChain(loader, rest: _*), wolfendale.nunjucks.filters.defaults)
 
   def resolveAndLoad(path: String, caller: Option[String]): Either[List[String], Loader.ResolvedTemplate] =
     loaders.parTraverse(_.resolveAndLoad(path, caller)).map(_.head)
@@ -35,6 +38,9 @@ class Environment(loaders: NonEmptyChain[Loader]) {
       .variables.set(scope.values.toSeq)
     parse(template, TemplateParser.template(_)).get.value.render.runA(context).value
   }
+
+  def getFilter(identifier: String): Option[Filter] =
+    filters.get(identifier)
 }
 
 final class ProvidedEnvironment(loader: ProvidedLoader = new ProvidedLoader()) extends Environment(loader) {
