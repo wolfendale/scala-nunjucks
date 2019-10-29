@@ -43,7 +43,7 @@ final case class Context(environment: Environment,
       frame.set(key, value, resolveUp)
     }
 
-  def getFrameOrVariable(key: String): Value =
+  def getContextValue(key: String): Value =
     frame.get(key) orElse variables.get(key) orElse environment.getGlobal(key)
 }
 

@@ -405,7 +405,7 @@ object TemplateNode {
                 val values = identifiers.map {
                   case (key, preferred) =>
                     preferred.getOrElse(key).value -> {
-                      val value = updatedContext.getFrameOrVariable(key.value)
+                      val value = updatedContext.getContextValue(key.value)
                       if (value.isDefined) {
                         value
                       } else {
@@ -428,7 +428,7 @@ object TemplateNode {
                 val values = identifiers.map {
                   case (key, preferred) =>
                     preferred.getOrElse(key).value -> {
-                      val value = importedContext.getFrameOrVariable(key.value)
+                      val value = importedContext.getContextValue(key.value)
                       if (value.isDefined) {
                         value
                       } else {
