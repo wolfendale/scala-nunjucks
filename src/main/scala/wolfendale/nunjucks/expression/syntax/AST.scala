@@ -290,7 +290,8 @@ object AST {
         value  <- expr.eval
         params <- parameters
         result <- State.inspect[Context, Value] { context =>
-          context.filters.get(identifier.value)
+          context.environment
+            .getFilter(identifier.value)
             .map(_.apply(context.frame.get, value, params))
             .getOrElse(throw new RuntimeException(s"Filter not found: ${identifier.value}"))
         }
