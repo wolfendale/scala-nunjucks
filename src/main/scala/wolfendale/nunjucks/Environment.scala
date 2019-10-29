@@ -15,7 +15,7 @@ class Environment(
     this(
       loaders = NonEmptyChain(loader, rest: _*),
       filters = wolfendale.nunjucks.filters.defaults,
-      globals = Map.empty
+      globals = wolfendale.nunjucks.globals.defaults
     )
 
   def resolveAndLoad(path: String, caller: Option[String]): Either[List[String], Loader.ResolvedTemplate] =
@@ -54,7 +54,7 @@ class Environment(
 final class ProvidedEnvironment(
                                  loader: ProvidedLoader = new ProvidedLoader(),
                                  filters: Map[String, Filter] = wolfendale.nunjucks.filters.defaults,
-                                 globals: Map[String, Value] = Map.empty
+                                 globals: Map[String, Value] = wolfendale.nunjucks.globals.defaults
                                ) extends Environment(NonEmptyChain.one(loader), filters, globals) {
 
   def add(name: String, template: Template): ProvidedEnvironment =
