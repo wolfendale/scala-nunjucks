@@ -27,5 +27,9 @@ class RangeSpec extends FreeSpec with MustMatchers {
     "must step through range until stop starting from zero as a default" in {
       environment.render("{% for i in range(6) -%}{{ i }},{%- endfor %}") mustEqual "0,1,2,3,4,5,"
     }
+
+    "must not coerce strings for parameters" in {
+      environment.render("{% for i in range('m', 'z') -%}{{ i }},{%- endfor %}") mustEqual ""
+    }
   }
 }
