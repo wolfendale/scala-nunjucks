@@ -7,14 +7,15 @@ final case class Context(environment: Environment,
                          private val _frame: Frame = Frame.empty,
                          private val _variables: Map[String, Value] = Map.empty,
                          private val _blocks: Map[String, Vector[TemplateNode.Partial]] = Map.empty,
-                         private val _path: Option[String] = None) {
-
+                         private val _path: Option[String] = None,
+                         private val _parent: Option[Loader.ResolvedTemplate] = None,
+                         private val _inBlock: Boolean = false) {
 
   def empty: Context =
     empty(_renderMode)
 
   def empty(renderMode: RenderMode): Context =
-    Context(environment, renderMode)
+    Context(environment, renderMode, _parent = None)
 
   def exports: Context.ExportsProjection =
     Context.ExportsProjection(this)
@@ -33,6 +34,12 @@ final case class Context(environment: Environment,
 
   def renderMode: Context.RenderModeProjection =
     Context.RenderModeProjection(this)
+
+  def parent: Context.ParentProjection =
+    Context.ParentProjection(this)
+
+  def inBlock: Context.InBlockProjection =
+    Context.InBlockProjection(this)
 
   def setFrameAndVariable(key: String, value: Value, resolveUp: Boolean): Context =
     if (_frame.isRoot) {
@@ -134,6 +141,26 @@ object Context {
 
     def set(renderMode: RenderMode): Context =
       context.copy(_renderMode = renderMode)
+  }
+
+  final case class ParentProjection(context: Context) {
+
+    def get: Option[Loader.ResolvedTemplate] =
+      context._parent
+
+    def set(parent: Loader.ResolvedTemplate): Context =
+      context.copy(_parent = Some(parent))
+
+    def empty: Context =
+      context.copy(_parent = None)
+  }
+
+  final case class InBlockProjection(context: Context) {
+
+    def get: Boolean = context._inBlock
+
+    def set(inBlock: Boolean): Context =
+      context.copy(_inBlock = inBlock)
   }
 }
 
