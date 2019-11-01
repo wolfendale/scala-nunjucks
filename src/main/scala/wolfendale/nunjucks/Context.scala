@@ -4,7 +4,7 @@ import wolfendale.nunjucks.expression.runtime.Value
 
 final case class Context(environment: Environment,
                          private val _renderMode: RenderMode,
-                         private val _frame: Frame = Frame.empty,
+                         private val _scope: Scope = Scope.empty,
                          private val _variables: Map[String, Value] = Map.empty,
                          private val _blocks: Map[String, Vector[TemplateNode.Partial]] = Map.empty,
                          private val _path: Option[String] = None,
@@ -42,7 +42,7 @@ final case class Context(environment: Environment,
     Context.InBlockProjection(this)
 
   def setFrameAndVariable(key: String, value: Value, resolveUp: Boolean): Context =
-    if (_frame.isRoot) {
+    if (_scope.isRoot) {
       this
         .frame.set(key, value, resolveUp)
         .variables.set(key, value)
@@ -86,34 +86,28 @@ object Context {
   final case class FrameProjection(context: Context) {
 
     def set(key: String, value: Value, resolveUp: Boolean): Context =
-      context.copy(_frame = context._frame.set(key, value, resolveUp))
+      context.copy(_scope = context._scope.set(key, value, resolveUp))
 
     def set(entries: Seq[(String, Value)], resolveUp: Boolean): Context =
-      context.copy(_frame = context._frame.set(entries, resolveUp))
+      context.copy(_scope = context._scope.setMultiple(entries, resolveUp))
 
-    def set(frame: Frame): Context =
-      context.copy(_frame = frame)
+    def set(scope: Scope): Context =
+      context.copy(_scope = scope)
 
     def get(key: String): Value =
-      context._frame.get(key)
+      context._scope.get(key)
 
-    def get: Frame =
-      context._frame
+    def get: Scope =
+      context._scope
 
     def empty: Context =
-      context.copy(_frame = Frame.empty)
+      context.copy(_scope = Scope.empty)
 
     def push: Context =
-      context.copy(_frame = context._frame.push)
-
-    def push(frame: Frame): Context =
-      push(frame.values)
-
-    def push(values: Map[String, Value]): Context =
-      context.copy(_frame = Frame(values, context._frame))
+      context.copy(_scope = context._scope.push)
 
     def pop: Context =
-      context.copy(_frame = context._frame.pop)
+      context.copy(_scope = context._scope.pop)
   }
 
   final case class BlockProjection(context: Context) {

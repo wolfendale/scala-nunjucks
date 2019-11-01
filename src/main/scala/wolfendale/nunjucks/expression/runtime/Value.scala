@@ -1,7 +1,7 @@
 package wolfendale.nunjucks.expression.runtime
 
 import cats.data.State
-import wolfendale.nunjucks.{Context, Frame}
+import wolfendale.nunjucks.Context
 import wolfendale.nunjucks.expression.syntax.AST
 
 import scala.annotation.tailrec
