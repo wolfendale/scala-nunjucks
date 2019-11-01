@@ -28,7 +28,7 @@ final case class RootFrame(values: Map[String, Value]) extends Frame {
     Frame(Map.empty[String, Value], this)
 
   override def pop: RootFrame =
-    throw new RuntimeException("escaped root scope")
+    this
 
   override def set(key: String, value: Value, resolveUp: Boolean): Frame =
     RootFrame(values + (key -> value))

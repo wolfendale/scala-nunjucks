@@ -288,8 +288,14 @@ object TemplateParser {
         .map(TemplateNode.Filter.tupled)
     }
 
+    def extendsTag = {
+      import SingleLineWhitespace._
+      P(openTag ~ "extends" ~ Parser.expression ~ closeTag)
+        .map(TemplateNode.Extends)
+    }
+
     def tag: P[TemplateNode.Tag] =
-      P(ifTag | switchTag | forTag | setTag | verbatimTag | macroTag | callTag | includeTag | importTag | fromTag | blockTag | filterTag)
+      P(ifTag | switchTag | forTag | setTag | verbatimTag | macroTag | extendsTag | callTag | includeTag | importTag | fromTag | blockTag | filterTag)
 
     import NoWhitespace._
     def literal = {
@@ -300,19 +306,9 @@ object TemplateParser {
     P(expression | comment | tag | literal).rep.map(TemplateNode.Partial)
   }
 
-  def extendsTag[_: P] = {
-    import SingleLineWhitespace._
-    P(openTag ~ "extends" ~ Parser.expression ~ closeTag)
-      .map(TemplateNode.Extends)
-  }
-
   def template[_: P]: P[Template] = {
     import NoWhitespace._
-    def rootTemplate  = P(partial.? ~ End).map(RootTemplate)
-    def childTemplate = P(extendsTag.map(_.expr) ~ partial.? ~ End).map(ChildTemplate.tupled)
-    def complexTemplate =
-      P(NoCut(partial.map(Some.apply).map(RootTemplate) ~ childTemplate).map(ComplexTemplate.tupled))
-    P(complexTemplate | childTemplate | rootTemplate)
+    P(partial ~ End).map(Template)
   }
 }
 

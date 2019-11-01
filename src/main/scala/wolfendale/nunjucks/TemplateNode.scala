@@ -92,8 +92,10 @@ object TemplateNode {
     final case class ConditionalContent(condition: expression.syntax.AST, content: Partial)
   }
 
-
-  final case class Switch(exprToMatch:expression.syntax.AST.Expr, matchConditions: Seq[Switch.ConditionalContent], default: Option[Partial]) extends Tag {
+  final case class Switch(exprToMatch: expression.syntax.AST.Expr,
+                          matchConditions: Seq[Switch.ConditionalContent],
+                          default: Option[Partial])
+      extends Tag {
 
     require(default.isDefined || matchConditions.nonEmpty)
 
@@ -103,11 +105,11 @@ object TemplateNode {
         .map(matchConditions :+ Switch.ConditionalContent(Seq(exprToMatch), _))
         .getOrElse(matchConditions)
 
-      val collapsedConditionals = all.foldRight(Seq.empty[Switch.ConditionalContent]){
-        (m, n) => if(m.content.isEmpty && n.nonEmpty){
+      val collapsedConditionals = all.foldRight(Seq.empty[Switch.ConditionalContent]) { (m, n) =>
+        if (m.content.isEmpty && n.nonEmpty) {
           val last = n.head
           Switch.ConditionalContent(last.condition ++ m.condition, last.content) +: n.tail
-        }else {
+        } else {
           m +: n
         }
       }
@@ -115,13 +117,14 @@ object TemplateNode {
       collapsedConditionals.foldLeft(State.pure[Context, Option[String]](None)) { (m, n) =>
         m.flatMap {
           case None =>
-            Monad[State[Context, *]].ifM(State.inspect(context => n.condition.exists(_.eval.runA(context).value.equals(exprToMatch.eval.runA(context).value))))(
+            Monad[State[Context, *]].ifM(State.inspect(context =>
+              n.condition.exists(_.eval.runA(context).value.equals(exprToMatch.eval.runA(context).value))))(
               ifTrue = n.content.eval.map(_.some),
               ifFalse = State.pure(None))
           case some => State.pure(some)
         }
       }
-      }.map(_.getOrElse(""))
+    }.map(_.getOrElse(""))
   }
 
   object Switch {
@@ -179,7 +182,11 @@ object TemplateNode {
       for {
         value <- expr.eval
         _ <- names.foldLeft(State.pure[Context, Unit](())) { (m, n) =>
-              m.flatMap(_ => State.modify(_.setFrameAndVariable(n.value, value, resolveUp = true)))
+              m.flatMap { _ =>
+                State.modify { context =>
+                  context.setFrameAndVariable(n.value, value, resolveUp = true)
+                }
+              }
             }
       } yield ""
   }
@@ -235,15 +242,14 @@ object TemplateNode {
 
               val definingContextWithCallingVariables =
                 if (definingContext.renderMode.get.withContext) {
-                  definingContext
-                    .variables.set(callingContext.variables.getAll.toSeq)
+                  definingContext.variables.set(callingContext.variables.getAll.toSeq)
                 } else {
                   definingContext
                     .setFrameAndVariable(identifier.value, body, resolveUp = false)
                 }
 
-              val executingContext = definingContextWithCallingVariables
-                .frame.set(completeParameters, resolveUp = false)
+              val executingContext =
+                definingContextWithCallingVariables.frame.set(completeParameters, resolveUp = false)
 
               val (executedContext, result) = content.eval.run(executingContext).value
 
@@ -262,7 +268,11 @@ object TemplateNode {
             }
           }
 
-          definingContext.setFrameAndVariable(identifier.value, body, resolveUp = false)
+          if (definingContext.inBlock.get && definingContext.frame.get.pop.isRoot) {
+            definingContext.variables.set(identifier.value, body)
+          } else {
+            definingContext.setFrameAndVariable(identifier.value, body, resolveUp = false)
+          }
         }
         .map(_ => "")
   }
@@ -349,24 +359,19 @@ object TemplateNode {
             .map { resolvedTemplate =>
               if (withContext) {
 
-                val updatedContext = resolvedTemplate.template.render
-                  .runS {
-                    context
-                      .path.set(Some(resolvedTemplate.path))
-                      .renderMode.set(RenderMode.Import(withContext = true))
-                  }
-                  .value
+                val updatedContext = resolvedTemplate.template.render.runS {
+                  context.path.set(Some(resolvedTemplate.path)).renderMode.set(RenderMode.Import(withContext = true))
+                }.value
 
                 updatedContext.frame.set(identifier.value, Value.Obj(updatedContext.exports.get), resolveUp = false)
               } else {
 
-                val importedContext = resolvedTemplate.template.render
-                  .runS {
-                    context.empty
-                      .path.set(Some(resolvedTemplate.path))
-                      .renderMode.set(RenderMode.Import(withContext = false))
-                  }
-                  .value
+                val importedContext = resolvedTemplate.template.render.runS {
+                  context.empty.path
+                    .set(Some(resolvedTemplate.path))
+                    .renderMode
+                    .set(RenderMode.Import(withContext = false))
+                }.value
 
                 context.frame.set(identifier.value, Value.Obj(importedContext.exports.get), resolveUp = false)
               }
@@ -391,16 +396,11 @@ object TemplateNode {
           context.environment
             .resolveAndLoad(partial, context.path.get)
             .map { resolvedTemplate =>
-
               if (withContext) {
 
-                val updatedContext = resolvedTemplate.template.render
-                  .runS {
-                    context
-                      .path.set(Some(resolvedTemplate.path))
-                      .renderMode.set(RenderMode.Import(withContext = true))
-                  }
-                  .value
+                val updatedContext = resolvedTemplate.template.render.runS {
+                  context.path.set(Some(resolvedTemplate.path)).renderMode.set(RenderMode.Import(withContext = true))
+                }.value
 
                 val values = identifiers.map {
                   case (key, preferred) =>
@@ -417,13 +417,12 @@ object TemplateNode {
                 updatedContext.frame.set(values, resolveUp = false)
               } else {
 
-                val importedContext = resolvedTemplate.template.render
-                  .runS {
-                    context.empty
-                      .path.set(Some(resolvedTemplate.path))
-                      .renderMode.set(RenderMode.Import(withContext = false))
-                  }
-                  .value
+                val importedContext = resolvedTemplate.template.render.runS {
+                  context.empty.path
+                    .set(Some(resolvedTemplate.path))
+                    .renderMode
+                    .set(RenderMode.Import(withContext = false))
+                }.value
 
                 val values = identifiers.map {
                   case (key, preferred) =>
@@ -450,21 +449,54 @@ object TemplateNode {
 
   final case class Block(identifier: expression.syntax.AST.Identifier, partial: Partial) extends Tag {
 
-    override def eval: State[Context, String] = State { context =>
-      val rendered = (partial +: context.blocks.get(identifier.value))
-        .foldLeft[Value](Value.Null) { (result, partial) =>
-          val superFn = Value.Function { _ =>
-            State.pure[Context, Value](result)
-          }
+    private def getBlocks(key: String): State[Context, Vector[Partial]] =
+      State.inspect[Context, Vector[Partial]](_.blocks.get(key))
 
-          Value.Str(partial.eval.runA(context.frame.set("super", superFn, resolveUp = false)).value, safe = true)
-        }
-        .toStr
-        .value
+    private def pushBlock(key: String, block: Partial): State[Context, Unit] =
+      State.modify[Context](_.blocks.push(key, block))
 
-      val newContext = context.blocks.push(identifier.value, partial)
+    private def isChild: State[Context, Boolean] =
+      State.inspect[Context, Boolean](_.parent.get.isDefined)
 
-      (newContext, rendered)
+    private def enterBlock: State[Context, Unit] =
+      State.modify[Context](_.inBlock.set(true))
+
+    private def exitBlock: State[Context, Unit] =
+      State.modify[Context](_.inBlock.set(false))
+
+    override def eval: State[Context, String] = {
+      pushBlock(identifier.value, partial) >> Monad[State[Context, *]].ifM(isChild)(
+        ifTrue = State.empty[Context, String],
+        ifFalse = for {
+          _      <- enterScope >> enterBlock
+          blocks <- getBlocks(identifier.value)
+          result <- blocks.foldLeft[State[Context, Value]](State.pure(Value.Undefined)) {
+                     (result, partial) =>
+                       for {
+                         _ <- State.modify[Context] {
+                               context =>
+                                 val superFn = Value.Function {
+                                   _ =>
+                                     for {
+                                       _      <- enterScope
+                                       result <- result
+                                       _      <- exitScope
+                                     } yield
+                                       if (result.isDefined) {
+                                         result
+                                       } else {
+                                         throw new RuntimeException(
+                                           s"no super block available for '${identifier.value}")
+                                       }
+                                 }
+                                 context.frame.set("super", superFn, resolveUp = false)
+                             }
+                         result <- partial.eval
+                       } yield Value.Str(result, safe = true)
+                   }
+          _ <- exitBlock >> exitScope
+        } yield result.toStr.value
+      )
     }
   }
 
@@ -492,43 +524,40 @@ object TemplateNode {
       } yield result
   }
 
-  final case class Extends(expr: expression.syntax.AST.Expr)
-}
+  final case class Extends(expr: expression.syntax.AST.Expr) extends Tag {
 
-sealed abstract class Template {
+    override def eval: State[Context, String] = State { context =>
+      val parentName = expr.eval.runA(context).value.toStr.value
+      val parent = context.environment
+        .resolveAndLoad(parentName, context.path.get)
+        .leftMap { paths =>
+          throw new RuntimeException(s"missing template `$parentName`, attempted paths: ${paths.mkString(", ")}")
+        }
+        .merge
 
-  def render: State[Context, String]
-}
-
-final case class RootTemplate(partial: Option[Partial]) extends Template {
-
-  override def render: State[Context, String] =
-    partial.map(_.eval).getOrElse(State.pure(""))
-}
-
-final case class ChildTemplate(parent: expression.syntax.AST.Expr, partial: Option[Partial]) extends Template {
-
-  override def render: State[Context, String] = State.inspect[Context, String] { context =>
-    val parentTemplate = parent.eval.runA(context).value.toStr.value
-    val newContext =
-      partial.map(_.eval.runS(context).value).getOrElse(context)
-    context.environment
-      .resolveAndLoad(parentTemplate, context.path.get)
-      .map { resolvedTemplate =>
-        resolvedTemplate.template.render.runA(newContext.path.set(Some(resolvedTemplate.path))).value
-      }
-      .leftMap { paths =>
-        throw new RuntimeException(s"missing template `$parentTemplate`, attempted paths: ${paths.mkString(", ")}")
-      }
-      .merge
+      (context.parent.set(parent), "")
+    }
   }
 }
 
-final case class ComplexTemplate(rootTemplate: RootTemplate, childTemplate: ChildTemplate) extends Template {
+final case class Template(nodes: Partial) {
 
-  override def render: State[Context, String] =
+  def render: State[Context, String] = {
+
     for {
-      root  <- rootTemplate.render
-      child <- childTemplate.render
-    } yield root + child
+      rootResult <- nodes.eval
+      c          <- State.get[Context]
+      result <- c.parent.get match {
+                 case Some(parent) =>
+                   for {
+                     _ <- State.modify[Context] {
+                           _.parent.empty.path.set(Some(parent.path))
+                         }
+                     result <- parent.template.render
+                   } yield result
+                 case None =>
+                   State.pure[Context, String](rootResult)
+               }
+    } yield result
+  }
 }
