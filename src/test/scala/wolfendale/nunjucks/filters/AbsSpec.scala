@@ -1,37 +1,38 @@
 package wolfendale.nunjucks.filters
 
 import org.scalatest.{FreeSpec, MustMatchers}
-import wolfendale.nunjucks.ProvidedEnvironment
+import wolfendale.nunjucks.expression.ExpressionTester
+import wolfendale.nunjucks.expression.runtime.Value
 
 class AbsSpec extends FreeSpec with MustMatchers {
 
-  val environment = new ProvidedEnvironment()
+  val tester = new ExpressionTester()
 
   "abs filter" - {
 
     "must make a negative number positive" in {
 
-      environment.render("{{ -5 | abs }}") mustEqual "5"
+      tester.evaluate("-5 | abs") mustEqual Value.Number(5)
     }
 
     "must leave a positive number positive" in {
 
-      environment.render("{{ 5 | abs }}") mustEqual "5"
+      tester.evaluate("5 | abs") mustEqual Value.Number(5)
     }
 
     "must make negative infinity positive" in {
 
-      environment.render("{{ -Infinity | abs }}") mustEqual "Infinity"
+      tester.evaluate("-(1/0) | abs") mustEqual Value.Infinity
     }
 
     "must leave infinity positive" in {
 
-      environment.render("{{ Infinity | abs }}") mustEqual "Infinity"
+      tester.evaluate("(1/0) | abs") mustEqual Value.Infinity
     }
 
     "must leave NaN as NaN" in {
 
-      environment.render("{{ NaN | abs }}") mustEqual "NaN"
+      tester.evaluate("(+'asdf') | abs") mustEqual Value.NaN
     }
   }
 }
