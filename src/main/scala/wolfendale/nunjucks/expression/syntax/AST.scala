@@ -292,7 +292,7 @@ object AST {
         result <- State.inspect[Context, Value] { context =>
           context.environment
             .getFilter(identifier.value)
-            .map(_.apply(context.frame.get, value, params))
+            .map(_.apply(context.scope.get, value, params))
             .getOrElse(throw new RuntimeException(s"Filter not found: ${identifier.value}"))
         }
       } yield result

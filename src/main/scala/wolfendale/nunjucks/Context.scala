@@ -23,8 +23,8 @@ final case class Context(environment: Environment,
   def variables: Context.VariablesProjection =
     Context.VariablesProjection(this)
 
-  def frame: Context.FrameProjection =
-    Context.FrameProjection(this)
+  def scope: Context.ScopeProjection =
+    Context.ScopeProjection(this)
 
   def blocks: Context.BlockProjection =
     Context.BlockProjection(this)
@@ -42,16 +42,19 @@ final case class Context(environment: Environment,
     Context.InBlockProjection(this)
 
   def setFrameAndVariable(key: String, value: Value, resolveUp: Boolean): Context =
-    if (_scope.isRoot) {
+    if (_scope.isRoot && !_scope.isIsolated) {
       this
-        .frame.set(key, value, resolveUp)
+        .scope.set(key, value, resolveUp)
         .variables.set(key, value)
     } else {
-      frame.set(key, value, resolveUp)
+      scope.set(key, value, resolveUp)
     }
 
+  def defineMacro(identifier: String, body: Value.Function): Context =
+    variables.set(identifier, body)
+
   def getContextValue(key: String): Value =
-    frame.get(key) orElse variables.get(key) orElse environment.getGlobal(key)
+    scope.get(key) orElse variables.get(key) orElse environment.getGlobal(key)
 }
 
 object Context {
@@ -83,12 +86,12 @@ object Context {
       context._variables
   }
 
-  final case class FrameProjection(context: Context) {
+  final case class ScopeProjection(context: Context) {
 
     def set(key: String, value: Value, resolveUp: Boolean): Context =
       context.copy(_scope = context._scope.set(key, value, resolveUp))
 
-    def set(entries: Seq[(String, Value)], resolveUp: Boolean): Context =
+    def setAll(entries: Seq[(String, Value)], resolveUp: Boolean): Context =
       context.copy(_scope = context._scope.setMultiple(entries, resolveUp))
 
     def set(scope: Scope): Context =
@@ -106,8 +109,26 @@ object Context {
     def push: Context =
       context.copy(_scope = context._scope.push)
 
+    def push(isolate: Boolean): Context =
+      context.copy(_scope = context._scope.push(isolate))
+
     def pop: Context =
       context.copy(_scope = context._scope.pop)
+
+    def position: Int =
+      context._scope.position
+
+    def goTo(position: Int): Option[Context] =
+      context._scope.goTo(position).map {
+        scope =>
+          context.copy(_scope = scope)
+      }
+
+    def newRoot: Context =
+      context.copy(_scope = context._scope.newRoot(isolate = false))
+
+    def newRoot(isolate: Boolean): Context =
+      context.copy(_scope = context._scope.newRoot(isolate))
   }
 
   final case class BlockProjection(context: Context) {

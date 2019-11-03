@@ -11,12 +11,13 @@ final case class Scope private (
     private val nextId: Int
 ) {
 
-  def push: Scope = {
+  def push(isolate: Boolean): Scope = {
 
     val frame = Scope.Frame(
       id = nextId,
       values = Map.empty,
-      parentId = Some(current.id)
+      parentId = Some(current.id),
+      isolate = isolate
     )
 
     copy(
@@ -26,13 +27,18 @@ final case class Scope private (
     )
   }
 
-  def pop: Scope = copy(
-    current = current.parentId
-      .flatMap { id =>
-        frames.get(id)
-      }
-      .getOrElse(current) // if you try to pop the root frame you get the root frame, we could also throw an error?
-  )
+  def push: Scope =
+    push(false)
+
+  def pop: Scope = {
+    copy(
+      current = current.parentId
+        .flatMap { id =>
+          frames.get(id)
+        }
+        .getOrElse(current) // if you try to pop the root frame you get the root frame, we could also throw an error?
+    )
+  }
 
   def get(key: String): Value =
     resolve(key).flatMap { id =>
@@ -41,7 +47,7 @@ final case class Scope private (
 
   def set(key: String, value: Value, resolveUp: Boolean = false): Scope = {
 
-    val destinationFrame = if (resolveUp) {
+    val destinationFrame = if (resolveUp && !current.isolate) {
       resolve(key)
         .flatMap(frames.get)
         .getOrElse(current)
@@ -57,6 +63,29 @@ final case class Scope private (
       case (m, (k, v)) =>
         m.set(k, v, resolveUp)
     }
+
+  def position: Int =
+    current.id
+
+  def goTo(position: Int): Option[Scope] = {
+    frames.get(position).map { frame =>
+      copy(current = frame)
+    }
+  }
+
+  def newRoot(isolate: Boolean): Scope = {
+    val frame = Scope.Frame(
+      id = nextId,
+      values = Map.empty,
+      parentId = None,
+      isolate = isolate
+    )
+    copy(
+      frames = frames + (frame.id -> frame),
+      current = frame,
+      nextId = nextId + 1
+    )
+  }
 
   private def resolve(key: String): Option[Int] = {
 
@@ -79,9 +108,11 @@ final case class Scope private (
       current = if (current.id == frame.id) frame else current
     )
 
-  @deprecated
   def isRoot: Boolean =
-    current.id == 0
+    current.parentId.isEmpty
+
+  def isIsolated: Boolean =
+    current.isolate
 }
 
 object Scope {
@@ -115,7 +146,8 @@ object Scope {
   final case class Frame(
       id: Int,
       values: Map[String, Value],
-      parentId: Option[Int] = None
+      parentId: Option[Int] = None,
+      isolate: Boolean = false
   ) {
 
     def get(key: String): Option[Value] =
