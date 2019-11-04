@@ -170,12 +170,7 @@ object Parser {
 
     def exponent = P(CharIn("eE") ~ CharIn("+\\-").? ~ digits)
 
-    def number =
-      P(integral ~ fractional.? ~ exponent.?).!.map(string => AST.Number(string.toDouble))
-
-    def infinity = P("Infinity").map(_ => AST.Infinity)
-
-    P(number | infinity)
+    P(integral ~ fractional.? ~ exponent.?).!.map(string => AST.Number(string.toDouble))
   }
 
   def string[_: P] = {
