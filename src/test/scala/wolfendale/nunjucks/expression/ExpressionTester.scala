@@ -3,12 +3,12 @@ package wolfendale.nunjucks.expression
 import fastparse._
 import wolfendale.nunjucks.expression.runtime.Value
 import wolfendale.nunjucks.expression.syntax.AST
-import wolfendale.nunjucks.{Context, Environment, Frame, ProvidedEnvironment, RenderMode}
+import wolfendale.nunjucks._
 
 class ExpressionTester(environment: Environment = new ProvidedEnvironment()) {
 
   def evaluate(expression: String, scope: Value.Obj = Value.Obj.empty): Value = {
-    ast(expression).get.value.eval.runA(Context(environment, RenderMode.Template, Frame(scope))).value
+    ast(expression).get.value.eval.runA(Context(environment, RenderMode.Template, Scope.fromObj(scope))).value
   }
 
   def ast(expression: String): Parsed[AST.Expr] = {

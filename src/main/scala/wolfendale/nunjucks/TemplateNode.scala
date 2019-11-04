@@ -17,10 +17,13 @@ sealed abstract class TemplateNode {
 object TemplateNode {
 
   private def enterScope: State[Context, Unit] =
-    State.modify(_.frame.push)
+    State.modify(_.scope.push)
+
+  private def enterScope(isolate: Boolean): State[Context, Unit] =
+    State.modify(_.scope.push(isolate))
 
   private def exitScope: State[Context, Unit] =
-    State.modify(_.frame.pop)
+    State.modify(_.scope.pop)
 
   final case class Partial(contents: Seq[TemplateNode]) extends TemplateNode {
 
@@ -141,11 +144,13 @@ object TemplateNode {
       for {
         value <- expr.eval.map(_.toArr.values)
         result <- if (value.isEmpty) {
-                   elseCase.fold(State.pure[Context, String](""))(_.eval)
+                   elseCase
+                     .map(_.eval)
+                     .getOrElse(State.empty[Context, String])
                  } else {
-                   State[Context, String] { context =>
-                     value.zipWithIndex.foldLeft((context, "")) {
-                       case ((c, m), (subValues, i)) =>
+                   value.zipWithIndex.toList
+                     .map {
+                       case (subValues, i) =>
                          val loop = Value.Obj(
                            "index"     -> Value.Number(i + 1),
                            "index0"    -> Value.Number(i),
@@ -157,13 +162,14 @@ object TemplateNode {
                          )
 
                          val parameters =
-                           identifiers.map(_.value).zip(subValues.destructure)
+                           identifiers
+                             .map(_.value)
+                             .zip(subValues.destructure) :+ ("loop" -> loop)
 
-                         val scope = c.frame.set(parameters :+ ("loop" -> loop), resolveUp = false)
-
-                         partial.eval.run(scope).value.map(m + _)
+                         State.modify[Context](_.scope.setAll(parameters, resolveUp = false)) >> partial.eval
                      }
-                   }
+                     .sequence
+                     .map(Monoid.combineAll(_))
                  }
       } yield result
     }
@@ -196,7 +202,7 @@ object TemplateNode {
     override def eval: State[Context, String] = partial.eval.flatMap { content =>
       names
         .foldLeft(State.pure[Context, Unit](())) { (m, n) =>
-          m.flatMap(_ => State.modify(_.frame.set(n.value, Value.Str(content), resolveUp = true)))
+          m.flatMap(_ => State.modify(_.scope.set(n.value, Value.Str(content), resolveUp = true)))
         }
         .map(_ => "")
     }
@@ -213,68 +219,61 @@ object TemplateNode {
                          content: Partial)
       extends Tag {
 
-    override def eval: State[Context, String] =
-      State
-        .modify[Context] { definingContext =>
-          lazy val body: Value.Function = Value.Function { parameters =>
-            State[Context, Value] { callingContext =>
-              val defaultArguments = args.flatMap {
-                case (id, value) =>
-                  value.map(id.value -> _.eval.runA(definingContext).value)
-              }
+    private val defaultArguments = args.toList.flatMap {
+      case (key, value) =>
+        value.map(_.eval.map(key.value -> _))
+    }.sequence
 
-              val byNameParameters = parameters.parameters.toList
-                .mapFilter(param => param.name.map(_ -> param.value))
-                .toMap
+    private def withoutContext(arguments: List[(String, Value)]): State[Context, String] =
+      State.inspect[Context, String] { context =>
+        val c = context.empty
+            .path.set(context.path.get)
+            .scope.setAll(arguments, resolveUp = false)
+        content.eval.runA(c).value
+      }
 
-              val positionalParameters = args.keys
-                .map(_.value)
-                .filterNot(byNameParameters.isDefinedAt)
-                .zip(parameters.parameters.toList.mapFilter(param =>
-                  if (param.name.isEmpty) Some(param.value) else None))
+    private def withContext(arguments: List[(String, Value)]): State[Context, String] = for {
+      oldPosition <- State.inspect[Context, Int](_.scope.get.position)
+      _           <- State.modify[Context](_.scope.newRoot)
+      _           <- State.modify[Context](_.scope.setAll(arguments, resolveUp = false))
+      result      <- content.eval
+      _           <- State.modify[Context](_.scope.goTo(oldPosition).get)
+    } yield result
 
-              val caller = Map(
-                "caller" -> callingContext.frame.get("caller")
-              )
+    override def eval: State[Context, String] = {
 
-              val completeParameters =
-                (defaultArguments ++ byNameParameters ++ positionalParameters ++ caller).toList
+      for {
+        definingPath           <- State.inspect[Context, Option[String]](_.path.get)
+        defaultArguments       <- defaultArguments
+        importedWithoutContext <- State.inspect[Context, Boolean](_.renderMode.get == RenderMode.Import(false))
+        fn = Value.Function { parameters =>
+          val byNameParameters = parameters.parameters.toList
+            .mapFilter(param => param.name.map(_ -> param.value))
+            .toMap
 
-              val definingContextWithCallingVariables =
-                if (definingContext.renderMode.get.withContext) {
-                  definingContext.variables.set(callingContext.variables.getAll.toSeq)
-                } else {
-                  definingContext
-                    .setFrameAndVariable(identifier.value, body, resolveUp = false)
-                }
+          val positionalParameters = args.keys
+            .map(_.value)
+            .filterNot(byNameParameters.isDefinedAt)
+            .zip(parameters.parameters.toList.mapFilter(param => if (param.name.isEmpty) Some(param.value) else None))
 
-              val executingContext =
-                definingContextWithCallingVariables.frame.set(completeParameters, resolveUp = false)
+          def completeParameters(caller: Value) =
+            (defaultArguments ++ byNameParameters ++ positionalParameters ++ List("caller" -> caller))
 
-              val (executedContext, result) = content.eval.run(executingContext).value
-
-              val addedVariables =
-                executedContext.variables.getAll.toSet diff definingContextWithCallingVariables.variables.getAll.toSet
-
-              val resultContext =
-                if (definingContext.renderMode.get.withContext) {
-                  callingContext.variables
-                    .set(callingContext.variables.getAll.toSeq ++ addedVariables)
-                } else {
-                  callingContext
-                }
-
-              (resultContext, Value.Str(result, safe = true))
+          for {
+            callerPath  <- State.inspect[Context, Option[String]](_.path.get)
+            _           <- State.modify[Context](_.path.set(definingPath))
+            caller      <- State.inspect[Context, Value](_.scope.get("caller"))
+            result      <- if (importedWithoutContext) {
+              withoutContext(completeParameters(caller))
+            } else {
+              withContext(completeParameters(caller))
             }
-          }
-
-          if (definingContext.inBlock.get && definingContext.frame.get.pop.isRoot) {
-            definingContext.variables.set(identifier.value, body)
-          } else {
-            definingContext.setFrameAndVariable(identifier.value, body, resolveUp = false)
-          }
+            _           <- State.modify[Context](_.path.set(callerPath))
+          } yield Value.Str(result, safe = true)
         }
-        .map(_ => "")
+        _ <- State.modify[Context](_.defineMacro(identifier.value, fn))
+      } yield ""
+    }
   }
 
   final case class Call(parameters: Map[expression.syntax.AST.Identifier, Option[expression.syntax.AST.Expr]],
@@ -305,7 +304,7 @@ object TemplateNode {
             (defaultArguments ++ byNameParameters ++ positionalParameters).toList
 
           val result = for {
-            _      <- State.modify[Context](_.frame.set(completeParameters, resolveUp = false))
+            _      <- State.modify[Context](_.scope.setAll(completeParameters, resolveUp = false))
             result <- partial.eval
           } yield Value.Str(result, safe = true)
 
@@ -321,7 +320,7 @@ object TemplateNode {
       expr.eval
         .runA(context)
         .value(resolvedParameters)
-        .runA(context.frame.set("caller", body, resolveUp = false))
+        .runA(context.scope.set("caller", body, resolveUp = false))
         .value
         .toStr
         .value
@@ -350,38 +349,44 @@ object TemplateNode {
                           withContext: Boolean)
       extends Tag {
 
+    private def importWithContext(resolvedTemplate: Loader.ResolvedTemplate): State[Context, Unit] =
+      for {
+        oldPath       <- State.inspect[Context, Option[String]](_.path.get)
+        oldRenderMode <- State.inspect[Context, RenderMode](_.renderMode.get)
+        _             <- State.modify[Context](_.path.set(Some(resolvedTemplate.path)))
+        _             <- State.modify[Context](_.renderMode.set(RenderMode.Import(true)))
+        _             <- resolvedTemplate.template.render
+        exports       <- State.inspect[Context, Value](context => Value.Obj(context.exports.get))
+        _             <- State.modify[Context](_.scope.set(identifier.value, exports, resolveUp = false))
+        _             <- State.modify[Context](_.path.set(oldPath))
+        _             <- State.modify[Context](_.renderMode.set(oldRenderMode))
+      } yield ()
+
+    private def importWithoutContext(resolvedTemplate: Loader.ResolvedTemplate): State[Context, Unit] =
+      for {
+        oldContext <- State.get[Context]
+        _          <- State.modify[Context](_.empty(RenderMode.Import(false)))
+        _          <- State.modify[Context](_.path.set(Some(resolvedTemplate.path)))
+        _          <- resolvedTemplate.template.render
+        exports    <- State.inspect[Context, Value](context => Value.Obj(context.exports.get))
+        _          <- State.set[Context](oldContext)
+        _          <- State.modify[Context](_.scope.set(identifier.value, exports, resolveUp = false))
+      } yield ()
+
     override def eval: State[Context, String] =
-      State
-        .modify[Context] { context =>
-          val partial = expr.eval.runA(context).value.toStr.value
-          context.environment
-            .resolveAndLoad(partial, context.path.get)
-            .map { resolvedTemplate =>
-              if (withContext) {
-
-                val updatedContext = resolvedTemplate.template.render.runS {
-                  context.path.set(Some(resolvedTemplate.path)).renderMode.set(RenderMode.Import(withContext = true))
-                }.value
-
-                updatedContext.frame.set(identifier.value, Value.Obj(updatedContext.exports.get), resolveUp = false)
-              } else {
-
-                val importedContext = resolvedTemplate.template.render.runS {
-                  context.empty.path
-                    .set(Some(resolvedTemplate.path))
-                    .renderMode
-                    .set(RenderMode.Import(withContext = false))
-                }.value
-
-                context.frame.set(identifier.value, Value.Obj(importedContext.exports.get), resolveUp = false)
-              }
-            }
-            .leftMap { paths =>
-              throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
-            }
-            .merge
-        }
-        .map(_ => "")
+      for {
+        value <- expr.eval.map(_.toStr.value)
+        resolvedTemplate <- State.inspect[Context, Loader.ResolvedTemplate] { context =>
+                             context.environment
+                               .resolveAndLoad(value, context.path.get)
+                               .leftMap { paths =>
+                                 throw new RuntimeException(
+                                   s"missing template `$value`, attempted paths: ${paths.mkString(", ")}")
+                               }
+                               .merge
+                           }
+        _ <- if (withContext) importWithContext(resolvedTemplate) else importWithoutContext(resolvedTemplate)
+      } yield ""
   }
 
   final case class From(expr: expression.syntax.AST.Expr,
@@ -389,62 +394,68 @@ object TemplateNode {
                         withContext: Boolean)
       extends Tag {
 
+    private def importWithContext(resolvedTemplate: Loader.ResolvedTemplate): State[Context, Unit] =
+      for {
+        oldPath       <- State.inspect[Context, Option[String]](_.path.get)
+        oldRenderMode <- State.inspect[Context, RenderMode](_.renderMode.get)
+        _             <- State.modify[Context](_.path.set(Some(resolvedTemplate.path)))
+        _             <- State.modify[Context](_.renderMode.set(RenderMode.Import(true)))
+        _             <- resolvedTemplate.template.render
+        exports <- State.inspect[Context, Seq[(String, Value)]] { context =>
+                    identifiers.map {
+                      case (key, preferred) =>
+                        preferred.getOrElse(key).value -> {
+                          val value = context.getContextValue(key.value)
+                          if (value.isDefined) {
+                            value
+                          } else {
+                            throw new RuntimeException(s"`$key` not defined in `${resolvedTemplate.path}`")
+                          }
+                        }
+                    }
+                  }
+        _ <- State.modify[Context](_.scope.setAll(exports, resolveUp = false))
+        _ <- State.modify[Context](_.path.set(oldPath))
+        _ <- State.modify[Context](_.renderMode.set(oldRenderMode))
+      } yield ()
+
+    private def importWithoutContext(resolvedTemplate: Loader.ResolvedTemplate): State[Context, Unit] =
+      for {
+        oldContext <- State.get[Context]
+        _          <- State.modify[Context](_.empty(RenderMode.Import(false)))
+        _          <- State.modify[Context](_.path.set(Some(resolvedTemplate.path)))
+        _          <- resolvedTemplate.template.render
+        exports <- State.inspect[Context, Seq[(String, Value)]] { context =>
+                    identifiers.map {
+                      case (key, preferred) =>
+                        preferred.getOrElse(key).value -> {
+                          val value = context.getContextValue(key.value)
+                          if (value.isDefined) {
+                            value
+                          } else {
+                            throw new RuntimeException(s"`$key` not defined in `${resolvedTemplate.path}`")
+                          }
+                        }
+                    }
+                  }
+        _ <- State.set[Context](oldContext)
+        _ <- State.modify[Context](_.scope.setAll(exports, resolveUp = false))
+      } yield ()
+
     override def eval: State[Context, String] =
-      State
-        .modify[Context] { context =>
-          val partial = expr.eval.runA(context).value.toStr.value
-          context.environment
-            .resolveAndLoad(partial, context.path.get)
-            .map { resolvedTemplate =>
-              if (withContext) {
-
-                val updatedContext = resolvedTemplate.template.render.runS {
-                  context.path.set(Some(resolvedTemplate.path)).renderMode.set(RenderMode.Import(withContext = true))
-                }.value
-
-                val values = identifiers.map {
-                  case (key, preferred) =>
-                    preferred.getOrElse(key).value -> {
-                      val value = updatedContext.getContextValue(key.value)
-                      if (value.isDefined) {
-                        value
-                      } else {
-                        throw new RuntimeException(s"`$key` not defined in `${resolvedTemplate.path}`")
-                      }
-                    }
-                }
-
-                updatedContext.frame.set(values, resolveUp = false)
-              } else {
-
-                val importedContext = resolvedTemplate.template.render.runS {
-                  context.empty.path
-                    .set(Some(resolvedTemplate.path))
-                    .renderMode
-                    .set(RenderMode.Import(withContext = false))
-                }.value
-
-                val values = identifiers.map {
-                  case (key, preferred) =>
-                    preferred.getOrElse(key).value -> {
-                      val value = importedContext.getContextValue(key.value)
-                      if (value.isDefined) {
-                        value
-                      } else {
-                        throw new RuntimeException(s"`$key` not defined in `${resolvedTemplate.path}`")
-                      }
-                    }
-                }
-
-                context.frame.set(values, resolveUp = false)
-              }
-            }
-            .leftMap { paths =>
-              throw new RuntimeException(s"missing template `$partial`, attempted paths: ${paths.mkString(", ")}")
-            }
-            .merge
-        }
-        .map(_ => "")
+      for {
+        value <- expr.eval.map(_.toStr.value)
+        resolvedTemplate <- State.inspect[Context, Loader.ResolvedTemplate] { context =>
+                             context.environment
+                               .resolveAndLoad(value, context.path.get)
+                               .leftMap { paths =>
+                                 throw new RuntimeException(
+                                   s"missing template `$value`, attempted paths: ${paths.mkString(", ")}")
+                               }
+                               .merge
+                           }
+        _ <- if (withContext) importWithContext(resolvedTemplate) else importWithoutContext(resolvedTemplate)
+      } yield ""
   }
 
   final case class Block(identifier: expression.syntax.AST.Identifier, partial: Partial) extends Tag {
@@ -468,31 +479,28 @@ object TemplateNode {
       pushBlock(identifier.value, partial) >> Monad[State[Context, *]].ifM(isChild)(
         ifTrue = State.empty[Context, String],
         ifFalse = for {
-          _      <- enterScope >> enterBlock
+          _      <- enterScope(isolate = true) >> enterBlock
           blocks <- getBlocks(identifier.value)
-          result <- blocks.foldLeft[State[Context, Value]](State.pure(Value.Undefined)) {
-                     (result, partial) =>
-                       for {
-                         _ <- State.modify[Context] {
-                               context =>
-                                 val superFn = Value.Function {
-                                   _ =>
-                                     for {
-                                       _      <- enterScope
-                                       result <- result
-                                       _      <- exitScope
-                                     } yield
-                                       if (result.isDefined) {
-                                         result
-                                       } else {
-                                         throw new RuntimeException(
-                                           s"no super block available for '${identifier.value}")
-                                       }
+          result <- blocks.foldLeft[State[Context, Value]](State.pure(Value.Undefined)) { (result, partial) =>
+                     for {
+                       _ <- State.modify[Context] { context =>
+                             val superFn = Value.Function { _ =>
+                               for {
+                                 oldPosition <- State.inspect[Context, Int](_.scope.get.position)
+                                 _           <- State.modify[Context](_.scope.newRoot(isolate = true))
+                                 result      <- result
+                                 _           <- State.modify[Context](_.scope.goTo(oldPosition).get)
+                               } yield
+                                 if (result.isDefined) {
+                                   result
+                                 } else {
+                                   throw new RuntimeException(s"no super block available for '${identifier.value}")
                                  }
-                                 context.frame.set("super", superFn, resolveUp = false)
                              }
-                         result <- partial.eval
-                       } yield Value.Str(result, safe = true)
+                             context.scope.set("super", superFn, resolveUp = false)
+                           }
+                       result <- partial.eval
+                     } yield Value.Str(result, safe = true)
                    }
           _ <- exitBlock >> exitScope
         } yield result.toStr.value
@@ -516,7 +524,7 @@ object TemplateNode {
 
                    context.environment
                      .getFilter(identifier.value)
-                     .map(_.apply(context.frame.get, expression.runtime.Value.Str(content), parameters))
+                     .map(_.apply(context.scope.get, expression.runtime.Value.Str(content), parameters))
                      .getOrElse(throw new RuntimeException(s"No filter with name: ${identifier.value}"))
                      .toStr
                      .value

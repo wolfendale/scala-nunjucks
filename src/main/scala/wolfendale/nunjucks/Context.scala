@@ -4,7 +4,7 @@ import wolfendale.nunjucks.expression.runtime.Value
 
 final case class Context(environment: Environment,
                          private val _renderMode: RenderMode,
-                         private val _frame: Frame = Frame.empty,
+                         private val _scope: Scope = Scope.empty,
                          private val _variables: Map[String, Value] = Map.empty,
                          private val _blocks: Map[String, Vector[TemplateNode.Partial]] = Map.empty,
                          private val _path: Option[String] = None,
@@ -23,8 +23,8 @@ final case class Context(environment: Environment,
   def variables: Context.VariablesProjection =
     Context.VariablesProjection(this)
 
-  def frame: Context.FrameProjection =
-    Context.FrameProjection(this)
+  def scope: Context.ScopeProjection =
+    Context.ScopeProjection(this)
 
   def blocks: Context.BlockProjection =
     Context.BlockProjection(this)
@@ -42,16 +42,19 @@ final case class Context(environment: Environment,
     Context.InBlockProjection(this)
 
   def setFrameAndVariable(key: String, value: Value, resolveUp: Boolean): Context =
-    if (_frame.isRoot) {
+    if (_scope.isRoot && !_scope.isIsolated) {
       this
-        .frame.set(key, value, resolveUp)
+        .scope.set(key, value, resolveUp)
         .variables.set(key, value)
     } else {
-      frame.set(key, value, resolveUp)
+      scope.set(key, value, resolveUp)
     }
 
+  def defineMacro(identifier: String, body: Value.Function): Context =
+    variables.set(identifier, body)
+
   def getContextValue(key: String): Value =
-    frame.get(key) orElse variables.get(key) orElse environment.getGlobal(key)
+    scope.get(key) orElse variables.get(key) orElse environment.getGlobal(key)
 }
 
 object Context {
@@ -83,37 +86,49 @@ object Context {
       context._variables
   }
 
-  final case class FrameProjection(context: Context) {
+  final case class ScopeProjection(context: Context) {
 
     def set(key: String, value: Value, resolveUp: Boolean): Context =
-      context.copy(_frame = context._frame.set(key, value, resolveUp))
+      context.copy(_scope = context._scope.set(key, value, resolveUp))
 
-    def set(entries: Seq[(String, Value)], resolveUp: Boolean): Context =
-      context.copy(_frame = context._frame.set(entries, resolveUp))
+    def setAll(entries: Seq[(String, Value)], resolveUp: Boolean): Context =
+      context.copy(_scope = context._scope.setMultiple(entries, resolveUp))
 
-    def set(frame: Frame): Context =
-      context.copy(_frame = frame)
+    def set(scope: Scope): Context =
+      context.copy(_scope = scope)
 
     def get(key: String): Value =
-      context._frame.get(key)
+      context._scope.get(key)
 
-    def get: Frame =
-      context._frame
+    def get: Scope =
+      context._scope
 
     def empty: Context =
-      context.copy(_frame = Frame.empty)
+      context.copy(_scope = Scope.empty)
 
     def push: Context =
-      context.copy(_frame = context._frame.push)
+      context.copy(_scope = context._scope.push)
 
-    def push(frame: Frame): Context =
-      push(frame.values)
-
-    def push(values: Map[String, Value]): Context =
-      context.copy(_frame = Frame(values, context._frame))
+    def push(isolate: Boolean): Context =
+      context.copy(_scope = context._scope.push(isolate))
 
     def pop: Context =
-      context.copy(_frame = context._frame.pop)
+      context.copy(_scope = context._scope.pop)
+
+    def position: Int =
+      context._scope.position
+
+    def goTo(position: Int): Option[Context] =
+      context._scope.goTo(position).map {
+        scope =>
+          context.copy(_scope = scope)
+      }
+
+    def newRoot: Context =
+      context.copy(_scope = context._scope.newRoot(isolate = false))
+
+    def newRoot(isolate: Boolean): Context =
+      context.copy(_scope = context._scope.newRoot(isolate))
   }
 
   final case class BlockProjection(context: Context) {
