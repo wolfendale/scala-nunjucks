@@ -12,9 +12,12 @@ class PlayJsonConverter {
       case JsNumber(value) => Number(value.doubleValue())
       case JsString(value) => Str(value)
       case JsArray(value) => Arr(value.map(convert))
-      case JsObject(underlying) =>
-        val map = underlying.map({case (key, value) => (key, convert(value))})
-        Obj(map.toArray:_*)
+      case obj @ JsObject(_) => convertObject(obj)
+  }
+
+  def convertObject(js: JsObject): Value.Obj = {
+    val map = js.value.map({case (key, value) => (key, convert(value))})
+    Obj(map.toArray:_*)
   }
 
 }
