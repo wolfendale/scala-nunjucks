@@ -20,7 +20,7 @@ lazy val lib = (project in file("."))
 
 lazy val playTest = (project in file("play-test"))
   .enablePlugins(PlayScala)
-  .dependsOn(lib)
+  .dependsOn(lib, playNunjucks)
   .settings(
     name := "play-test",
     scalaVersion := "2.11.12",
