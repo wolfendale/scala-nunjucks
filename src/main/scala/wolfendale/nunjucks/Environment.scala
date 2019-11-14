@@ -49,6 +49,9 @@ class Environment(
 
   def getGlobal(identifier: String): Value =
     globals.getOrElse(identifier, Value.Undefined)
+
+  def addGlobal(identifier: String, value: Value): Environment =
+    new Environment(loaders, filters, globals + (identifier -> value))
 }
 
 final class ProvidedEnvironment(
