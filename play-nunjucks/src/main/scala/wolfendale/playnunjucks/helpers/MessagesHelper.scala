@@ -14,7 +14,17 @@ class MessagesHelper @Inject()(
 
     Value.Function { params =>
       val key = params.get(0).getOrElse(Value.Undefined).toStr.value
-      State.pure(Value.Str(Messages(key)))
+
+      val args = params.getAll
+        .drop(1)
+        .map {
+          case Value.Undefined => Value.Str("")
+          case x: Value => x
+        }
+        .map(_.toStr.value)
+        .toArray
+
+      State.pure(Value.Str(Messages(key, args:_*)))
     }
   }
 }

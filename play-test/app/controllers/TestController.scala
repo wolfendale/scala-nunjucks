@@ -16,6 +16,6 @@ class TestController @Inject()(
     with I18nSupport {
 
   def get: Action[AnyContent] = Action.async { implicit request =>
-    renderer.render("test.njk", Json.obj("eventName" -> "Test event name")).map(Ok(_))
+    renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
   }
 }

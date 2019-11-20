@@ -648,6 +648,9 @@ object Value {
 
       def get(index: Int): Option[Value] =
         parameters.lift(index).map(_.value)
+
+      def getAll: Seq[Value] =
+        parameters.map(_.value)
     }
 
   }

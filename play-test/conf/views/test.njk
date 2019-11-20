@@ -20,7 +20,12 @@
     <div class="govuk-grid-row">
       <div class="govuk-grid-column-two-thirds">
 
+
         {{ messages('error.summary.title') }}
+        {{ messages("error.summary.title") }}
+        {{ messages('date.required.1', eventName) }}
+        {{ messages(eventName) }}
+
         {% from "govuk/components/input/macro.njk" import govukInput %}
 
         {{ govukInput({
