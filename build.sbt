@@ -48,6 +48,7 @@ lazy val playNunjucks = (project in file("play-nunjucks"))
     scalaVersion := "2.11.12",
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-      "com.typesafe.play" %% "play" % PlayVersion.current
+      "com.typesafe.play" %% "play" % PlayVersion.current,
+      "com.typesafe.play" %% "play-test" % PlayVersion.current
     )
   )
