@@ -1,4 +1,4 @@
-package controllers
+package controllers.anotherpackage
 
 import com.google.inject.Inject
 import play.api.i18n.I18nSupport
@@ -8,22 +8,14 @@ import wolfendale.playnunjucks.NunjucksRenderer
 
 import scala.concurrent.ExecutionContext
 
-class TestController @Inject()(
+class AnotherController @Inject()(
     cc: ControllerComponents,
     renderer: NunjucksRenderer
 )(implicit ec: ExecutionContext)
     extends AbstractController(cc)
     with I18nSupport {
 
-  def obviousName: Action[AnyContent] = Action.async { implicit request =>
-    renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
-  }
-
-  def methodWithArgs(ref: String): Action[AnyContent] = Action.async { implicit request =>
-    renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
-  }
-
-  def methodWithTwoArgs(ref: String, ref2: String): Action[AnyContent] = Action.async { implicit request =>
+  def anotherObviousName: Action[AnyContent] = Action.async { implicit request =>
     renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
   }
 }
