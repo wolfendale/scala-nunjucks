@@ -16,14 +16,14 @@ class TestController @Inject()(
     with I18nSupport {
 
   def obviousName: Action[AnyContent] = Action.async { implicit request =>
-    renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
+    renderer.render("test.njk", Json.obj("eventName" -> "date.title")).map(Ok(_))
   }
 
   def methodWithArgs(ref: String): Action[AnyContent] = Action.async { implicit request =>
-    renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
+    renderer.render("test.njk", Json.obj("eventName" -> "date.title")).map(Ok(_))
   }
 
   def methodWithTwoArgs(ref: String, ref2: String): Action[AnyContent] = Action.async { implicit request =>
-    renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
+    renderer.render("test.njk", Json.obj("eventName" -> "date.title")).map(Ok(_))
   }
 }
