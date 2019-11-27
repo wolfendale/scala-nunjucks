@@ -46,10 +46,12 @@ lazy val playNunjucks = (project in file("play-nunjucks"))
     name := "play-nunjucks",
     version := "0.1.0",
     scalaVersion := "2.11.12",
+    scalacOptions += "-Ypartial-unification",
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
       "com.typesafe.play" %% "play" % PlayVersion.current,
       "com.typesafe.play" %% "play-test" % PlayVersion.current,
+      "org.typelevel" %% "cats-core" % "1.6.1",
       "com.github.pathikrit" %% "better-files" % "3.5.0"
     )
   )

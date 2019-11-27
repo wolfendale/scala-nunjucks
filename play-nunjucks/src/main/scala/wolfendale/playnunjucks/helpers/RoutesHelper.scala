@@ -1,6 +1,9 @@
 package wolfendale.playnunjucks.helpers
+import java.lang.reflect.Method
+
 import better.files._
 import cats.data.State
+import cats.implicits._
 import javax.inject.Inject
 import play.api.Environment
 import play.api.mvc.{Call, RequestHeader}
@@ -8,14 +11,28 @@ import wolfendale.nunjucks.expression.runtime.Value
 
 import scala.util.{Failure, Success, Try}
 
-case class RouteCall(packageRoot: String, controller: String, method: String, arguments: Seq[String], urlType: String)
+case class RouteCallable(routerClass: Class[_], routerInstance: AnyRef, method: Method) {
 
-object RouteCall {
+  def asFunction(implicit request: RequestHeader): Value.Function = {
+    Value.Function { params =>
+      val args = params.getAll.map(_.toStr.value)
 
-  def parseArgs(args: Option[String]): Seq[String] = {
-    args match {
-      case Some(x) => x.split(",").toList.map(_.trim)
-      case None    => Seq.empty
+      val result = Try {
+        method.invoke(routerInstance, args: _*).asInstanceOf[Call]
+      }
+
+      val obj = result match {
+        case Success(call) => Value.Obj(
+          Map(
+            "url" -> Value.Str(call.url),
+            "relative" -> Value.Str(call.relative),
+            "absoluteURL" -> Value.Str(call.absoluteURL())
+          )
+        )
+        case Failure(e)   => throw new RuntimeException(s"Unable to call route ($e)", e)
+      }
+
+      State.pure(obj)
     }
   }
 
@@ -23,57 +40,65 @@ object RouteCall {
 
 class RoutesHelper @Inject()(environment: Environment) extends PlayHelper {
 
+  val cache: Map[String, RouteCallable] = buildCache()
+
   override def value(implicit request: RequestHeader): Value = {
-    Value.Function { params =>
-      val input = params
-        .get(0)
-        .map(_.toStr.value)
-        .getOrElse("")
+    // routes.controllers.PresentationOfficeController.onSubmit(mrn, mode).url
+    // routes('controllers.PresentationOfficeController.onSubmit(mrn, mode).url')
 
-      val extract = "routes\\.(.+)\\.(.+)\\.([\\w^(]+)(?:\\(\\)|(?:\\(([\\w, ]+)\\))?)\\.(.+)".r
-
-      val routeCall = input match {
-        case extract(packageRoot, controller, method, arguments, urlType) =>
-          RouteCall(packageRoot, controller, method, RouteCall.parseArgs(Option(arguments)), urlType)
+    val list = cache.map {
+      case (key: String, call: RouteCallable) => {
+        val split = key.split("\\.").toList
+        split.foldRight(call.asFunction: Value) {
+          case (key, child) => Value.Obj(key -> child)
+        }
       }
+    }.toList
 
-      val path = environment.rootPath.toScala
-        .globRegex("target/.*/routes/main/.*/routes.java".r)
-        .toList
-        .map(environment.rootPath.toScala.relativize)
-        .map(_.toString.replaceFirst(".*?routes/main/", ""))
-        .map(_.replaceAll("\\.java", ""))
-        .map(_.replaceAll("/", "."))
-        .find(_ == (routeCall.packageRoot + ".routes"))
+    list.foldRight(Map[String, Value]())((x, acc) => {
+      x.properties
+    })
 
-      val result = path.map(p =>
-        Try {
-          val clazz       = Class.forName(p, false, environment.classLoader)
-          val field       = clazz.getDeclaredField(routeCall.controller)
+    println(list)
+
+    val result = Value.Obj()
+
+//    println(result.properties)
+
+    result
+  }
+
+  private def buildCache() = {
+    val paths = environment.rootPath.toScala
+      .globRegex("target/.*/routes/main/.*/routes.java".r)
+      .toList
+      .map(environment.rootPath.toScala.relativize)
+      .map(_.toString.replaceFirst(".*?routes/main/", ""))
+      .map(_.replaceAll("\\.java", ""))
+      .map(_.replaceAll("/", "."))
+
+    paths
+      .flatMap { path =>
+        val clazz  = Class.forName(path, false, environment.classLoader)
+        val fields = clazz.getDeclaredFields.toList
+        fields.map { field =>
           val inst        = clazz.newInstance()
           val router      = field.get(inst)
           val routerClass = router.getClass
-          val argsClasses = Array.fill(routeCall.arguments.length) { classOf[String] }
-          val method      = routerClass.getMethod(routeCall.method, argsClasses: _*)
-          val call        = method.invoke(router, routeCall.arguments: _*).asInstanceOf[Call]
-
-          routeCall.urlType match {
-            case "url"         => call.url
-            case "relative"    => call.relative
-            case "absoluteURL" => call.absoluteURL
-          }
-      })
-
-      val url: String = result match {
-        case Some(Success(url)) => url
-        case Some(Failure(e))   => throw new RuntimeException(s"Unable to create route ($e)", e)
-        case None => {
-          throw new RuntimeException(s"Unable to locate route file in package: ${routeCall.packageRoot}")
+          routerClass.getMethods.toList
+            .filter(_.getReturnType == classOf[play.api.mvc.Call])
+            .map(
+              call =>
+//                (s"controllers.${field.getName}.${call.getName}".replaceAll("\\.", ""),
+                (s"controllers.${field.getName}.${call.getName}",
+                 RouteCallable(
+                   routerClass,
+                   router,
+                   call
+                 )))
+            .toMap
         }
       }
-
-      State.pure(Value.Str(url.toString))
-    }
-
+      .foldRight(Map[String, RouteCallable]())((x, acc) => acc ++ x)
   }
 }
