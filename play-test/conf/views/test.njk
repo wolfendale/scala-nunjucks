@@ -20,12 +20,15 @@
     <div class="govuk-grid-row">
       <div class="govuk-grid-column-two-thirds">
 
-        {# {{ routes('routes.controllers.TestController.obviousName().url') }}<br/>
-                {{ routes('routes.controllers.TestController.methodWithArgs(arg1).url') }}<br/>
-                {{ routes('routes.controllers.TestController.methodWithTwoArgs(arg1,arg2).url') }}<br/>
-                {{ routes('routes.controllers.anotherpackage.AnotherController.anotherObviousName().url') }}<br/> #}
+        {{ routes.controllers.TestController.obviousName().url }}<br/>
+        {{ routes.controllers.TestController.methodWithArgs('arg1').url }}<br/>
+        {{ routes.controllers.TestController.methodWithTwoArgs('arg1','arg2').url }}<br/>
+        {{ routes.controllers.anotherpackage.AnotherController.anotherObviousName().url }}<br/>
+        {{ routes.controllers.anotherpackage.AnotherController.anotherMethodWithArgs('hello').url }}<br/>
 
-                {{ routes }}
+        {{ routes.controllers.TestController.methodWithArgs('hello').url }}<br/>
+        {{ routes.controllers.TestController.methodWithArgs('hello').relative }}<br/>
+        {{ routes.controllers.TestController.methodWithArgs('hello').absoluteURL }}<br/>
 
         {% from "govuk/components/input/macro.njk" import govukInput %}
 

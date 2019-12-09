@@ -18,4 +18,8 @@ class AnotherController @Inject()(
   def anotherObviousName: Action[AnyContent] = Action.async { implicit request =>
     renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
   }
+
+  def anotherMethodWithArgs(ref: String): Action[AnyContent] = Action.async { implicit request =>
+    renderer.render("test.njk", Json.obj("eventName" -> "error.summary.title")).map(Ok(_))
+  }
 }

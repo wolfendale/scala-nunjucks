@@ -1,1 +1,3 @@
 GET        /                                  controllers.anotherpackage.AnotherController.anotherObviousName
+
+GET        /:ref                              controllers.anotherpackage.AnotherController.anotherMethodWithArgs(ref)

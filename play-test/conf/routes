@@ -7,4 +7,3 @@ GET        /                                  controllers.TestController.obvious
 GET        /id/:ref                           controllers.TestController.methodWithArgs(ref)
 
 GET        /id/:ref/:ref2                     controllers.TestController.methodWithTwoArgs(ref, ref2)
-
