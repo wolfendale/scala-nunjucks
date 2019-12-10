@@ -1,7 +1,6 @@
 package wolfendale.playnunjucks.helpers
 import java.lang.reflect.Method
 
-import better.files._
 import cats.data.State
 import javax.inject.Inject
 import play.api.Environment
@@ -41,24 +40,19 @@ case class RouteCallable(routerClass: Class[_], routerInstance: AnyRef, method: 
 class RoutesHelper @Inject()(environment: Environment) extends PlayHelper {
 
   val cache: Tree[String, RouteCallable] = buildCache()
-  println(cache.get("controllers"))
 
   override def value(implicit request: RequestHeader): Value = {
     convertToObj(cache)
   }
 
   private def buildCache() = {
-    val paths = environment.rootPath.toScala
-      .globRegex("target/.*/routes/main/.*/routes.java".r)
-      .toList
-      .map(environment.rootPath.toScala.relativize)
-      .map(_.toString.replaceFirst(".*?routes/main/", ""))
-      .map(_.replaceAll("\\.java", ""))
-      .map(_.replaceAll("/", "."))
-
-    paths
-      .flatMap { path =>
-        val clazz  = Class.forName(path, false, environment.classLoader)
+    Package.getPackages.toList
+      .map(_.getName)
+      .flatMap(p =>
+        Try[Class[$0] forSome { type $0 }] {
+          Class.forName(s"$p.routes")
+        }.toOption)
+      .flatMap { clazz =>
         val fields = clazz.getDeclaredFields.toList
         fields
           .map { field =>
@@ -77,13 +71,15 @@ class RoutesHelper @Inject()(environment: Environment) extends PlayHelper {
                    )))
               .toMap
           }
-      }.flatMap(_.map {
-      case (key: String, call: RouteCallable) => {
-        Tree[String, RouteCallable](key.split("\\.").toList, call)
       }
-    }).foldRight(Tree.empty: Tree[String, RouteCallable]) { (tree, acc) =>
-      acc.combine(tree)
-    }
+      .flatMap(_.map {
+        case (key: String, call: RouteCallable) => {
+          Tree[String, RouteCallable](key.split("\\.").toList, call)
+        }
+      })
+      .foldRight(Tree.empty: Tree[String, RouteCallable]) { (tree, acc) =>
+        acc.combine(tree)
+      }
   }
 
   private def convertToObj(tree: Tree[String, RouteCallable])(implicit request: RequestHeader): Value = {
