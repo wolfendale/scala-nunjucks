@@ -1,10 +1,12 @@
 package wolfendale.nunjucks.expression
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 import wolfendale.nunjucks.expression.runtime.Value
 
-class GlobalsSpec extends FreeSpec with MustMatchers {
+class GlobalsSpec extends AnyFreeSpec with Matchers {
 
   "global variables" - {
 

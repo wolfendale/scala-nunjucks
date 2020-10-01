@@ -1,13 +1,15 @@
 package wolfendale.nunjucks.expression
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.expression.ExpressionTester._
 import wolfendale.nunjucks.expression.runtime.Value
 import wolfendale.nunjucks.expression.runtime.Value.RegexFlag._
 
-class RegexSpec extends FreeSpec with MustMatchers {
+class RegexSpec extends AnyFreeSpec with Matchers {
 
-  val tester = new ExpressionTester()
+  val tester  = new ExpressionTester()
   val pattern = "test"
 
   "a Regex" - {
@@ -15,12 +17,13 @@ class RegexSpec extends FreeSpec with MustMatchers {
       tester.evaluate(s"r/$pattern/") mustBe Value.Regex(pattern)
     }
     "must implement the eval method to succeed on valid flags" in {
-      tester.evaluate(s"r/$pattern/gimy") mustBe Value.Regex(pattern, Set(
-        ApplyGlobally,
-        CaseInsensitive,
-        MultiLine,
-        Sticky
-      ))
+      tester.evaluate(s"r/$pattern/gimy") mustBe Value.Regex(pattern,
+                                                             Set(
+                                                               ApplyGlobally,
+                                                               CaseInsensitive,
+                                                               MultiLine,
+                                                               Sticky
+                                                             ))
     }
     "must implement the eval method to return parse error for invalid flags" in {
       val optFailure = tester.ast(s"r/test/k").optFailure
@@ -38,7 +41,8 @@ class RegexSpec extends FreeSpec with MustMatchers {
     }
 
     "must implement the source method to return the entire pattern" in {
-      tester.evaluate(s"regex.source", scope = Value.Obj("regex" -> Value.Regex(pattern))).toStr mustBe Value.Str(pattern)
+      tester.evaluate(s"regex.source", scope = Value.Obj("regex" -> Value.Regex(pattern))).toStr mustBe Value.Str(
+        pattern)
     }
     "must implement the source method to return an override for the empty pattern" in {
       tester.evaluate(s"regex.source", scope = Value.Obj("regex" -> Value.Regex(""))).toStr mustBe Value.Str("(?:)")
@@ -66,7 +70,8 @@ class RegexSpec extends FreeSpec with MustMatchers {
     }
     "must output the correct flags set" - {
       val patternWithoutFlag = Value.Obj("regex" -> Value.Regex(pattern))
-      val patternWithAllFlag = Value.Obj("regex" -> Value.Regex(pattern, Set(ApplyGlobally, CaseInsensitive, MultiLine, Sticky)))
+      val patternWithAllFlag =
+        Value.Obj("regex" -> Value.Regex(pattern, Set(ApplyGlobally, CaseInsensitive, MultiLine, Sticky)))
 
       "must output flags correctly" in {
         tester.evaluate(s"""regex.flags""", scope = patternWithoutFlag) mustBe Value.Str("")
@@ -105,13 +110,13 @@ class RegexSpec extends FreeSpec with MustMatchers {
         tester.evaluate(s"""regex.test('${pattern.toUpperCase}')""", scope = patternWithCaseInsensitiveFlag) mustBe Value.True
       }
       "which outputs multiline flag correctly" in {
-        val patternWithoutFlag = Value.Obj("regex" -> Value.Regex((s"^$pattern")))
+        val patternWithoutFlag       = Value.Obj("regex" -> Value.Regex((s"^$pattern")))
         val patternWithMultiLineFlag = Value.Obj("regex" -> Value.Regex(s"^$pattern", Set(MultiLine)))
         tester.evaluate(s"regex.multiline", scope = patternWithoutFlag) mustBe Value.False
         tester.evaluate(s"regex.multiline", scope = patternWithMultiLineFlag) mustBe Value.True
       }
       "which evaluates multiline flag correctly" in {
-        val patternWithoutFlag = Value.Obj("regex" -> Value.Regex((s"^$pattern")))
+        val patternWithoutFlag       = Value.Obj("regex" -> Value.Regex((s"^$pattern")))
         val patternWithMultiLineFlag = Value.Obj("regex" -> Value.Regex(s"^$pattern", Set(MultiLine)))
         tester.evaluate(s"""regex.test('\n$pattern')""", scope = patternWithoutFlag) mustBe Value.False
         tester.evaluate(s"""regex.test('\n$pattern')""", scope = patternWithMultiLineFlag) mustBe Value.True

@@ -1,9 +1,11 @@
 package wolfendale.nunjucks.filters
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 
-class UpperSpec extends FreeSpec with MustMatchers {
+class UpperSpec extends AnyFreeSpec with Matchers {
 
   val environment = new ProvidedEnvironment()
 

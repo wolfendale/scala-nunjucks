@@ -1,10 +1,12 @@
 package wolfendale.nunjucks.filters
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.expression.ExpressionTester
 import wolfendale.nunjucks.expression.runtime.Value
 
-class AbsSpec extends FreeSpec with MustMatchers {
+class AbsSpec extends AnyFreeSpec with Matchers {
 
   val tester = new ExpressionTester()
 

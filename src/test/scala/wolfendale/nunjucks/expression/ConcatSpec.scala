@@ -1,9 +1,11 @@
 package wolfendale.nunjucks.expression
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.expression.runtime.Value
 
-class ConcatSpec extends FreeSpec with MustMatchers {
+class ConcatSpec extends AnyFreeSpec with Matchers {
 
   val tester = new ExpressionTester()
 

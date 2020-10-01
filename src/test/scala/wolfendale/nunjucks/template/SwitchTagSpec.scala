@@ -1,10 +1,12 @@
 package wolfendale.nunjucks.template
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 import wolfendale.nunjucks.expression.runtime.Value
 
-class SwitchTagSpec extends FreeSpec with MustMatchers {
+class SwitchTagSpec extends AnyFreeSpec with Matchers {
 
   val environment = new ProvidedEnvironment()
 
@@ -17,14 +19,16 @@ class SwitchTagSpec extends FreeSpec with MustMatchers {
     }
 
     "must compile when missing cases but does have a default" in {
-      environment.render(
-        """
+      environment
+        .render(
+          """
           |{% switch foo %}
           |{% default %}
           |{% endswitch %}
           |""".stripMargin,
-        Value.Obj.empty
-      ).trim mustBe ""
+          Value.Obj.empty
+        )
+        .trim mustBe ""
     }
 
     "must drop through to the default when provided with no value in the context to match" in {
@@ -56,32 +60,32 @@ class SwitchTagSpec extends FreeSpec with MustMatchers {
     }
 
     "must fall through when no content supplied for first case" in {
-      environment.render(
-        "{% switch foo %}{% case \"bar\" %}{% case \"baz\" %}BAR{% endswitch %}",
-        Value.Obj(
-          "foo" -> Value.Str("bar")
-      )) mustEqual "BAR"
+      environment.render("{% switch foo %}{% case \"bar\" %}{% case \"baz\" %}BAR{% endswitch %}",
+                         Value.Obj(
+                           "foo" -> Value.Str("bar")
+                         )) mustEqual "BAR"
     }
 
     "must match correctly when no content supplied for case above" in {
-      environment.render(
-        "{% switch foo %}{% case \"bar\" %}{% case \"baz\" %}BAR{% endswitch %}",
-        Value.Obj(
-          "foo" -> Value.Str("baz")
-        )) mustEqual "BAR"
+      environment.render("{% switch foo %}{% case \"bar\" %}{% case \"baz\" %}BAR{% endswitch %}",
+                         Value.Obj(
+                           "foo" -> Value.Str("baz")
+                         )) mustEqual "BAR"
     }
 
     "must use strict equality in evaluating case statements" in {
-      environment.render(
-        """
+      environment
+        .render(
+          """
           |{% set foo = 1 %}
           |{% switch foo %}
           |{% case "1" %}coercive
           |{% default %}strict
           |{% endswitch %}
           |""".stripMargin,
-        Value.Obj.empty
-      ).trim mustBe "strict"
+          Value.Obj.empty
+        )
+        .trim mustBe "strict"
 
     }
   }
