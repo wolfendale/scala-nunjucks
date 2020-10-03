@@ -1,9 +1,11 @@
 package wolfendale.nunjucks.globals
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 
-class JoinerSpec extends FreeSpec with MustMatchers {
+class JoinerSpec extends AnyFreeSpec with Matchers {
 
   val environment = new ProvidedEnvironment()
 

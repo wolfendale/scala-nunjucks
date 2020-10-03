@@ -1,11 +1,13 @@
 package wolfendale.nunjucks.filters
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 import wolfendale.nunjucks.expression.ExpressionTester
 import wolfendale.nunjucks.expression.runtime.Value._
 
-class FirstSpec extends FreeSpec with MustMatchers {
+class FirstSpec extends AnyFreeSpec with Matchers {
 
   val tester = new ExpressionTester()
 
@@ -50,7 +52,6 @@ class FirstSpec extends FreeSpec with MustMatchers {
 
         tester.evaluate("""(1 / 0) | first""") mustEqual Undefined
       }
-
 
       "a Bool" in {
         tester.evaluate("""true | first""") mustEqual Undefined

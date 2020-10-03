@@ -1,10 +1,12 @@
 package wolfendale.nunjucks.template
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 import wolfendale.nunjucks.expression.runtime.Value
 
-class ExpressionTagSpec extends FreeSpec with MustMatchers {
+class ExpressionTagSpec extends AnyFreeSpec with Matchers {
 
   val environment = new ProvidedEnvironment()
 
@@ -121,8 +123,7 @@ class ExpressionTagSpec extends FreeSpec with MustMatchers {
 
     "must allow for multiline expressions" in {
 
-      val result = environment.render(
-        """{{ {
+      val result = environment.render("""{{ {
           | foo: 'bar'
           |}.foo }}""".stripMargin)
 

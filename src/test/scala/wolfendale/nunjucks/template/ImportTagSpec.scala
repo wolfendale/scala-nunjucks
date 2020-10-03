@@ -1,9 +1,11 @@
 package wolfendale.nunjucks.template
 
-import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.OptionValues
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 
-class ImportTagSpec extends FreeSpec with MustMatchers with OptionValues {
+class ImportTagSpec extends AnyFreeSpec with Matchers with OptionValues {
 
   val environment = new ProvidedEnvironment()
 
@@ -122,7 +124,8 @@ class ImportTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
       val env = environment
         .add("import.njk", "{% set foo = 'bar' %}")
-        .add("test.njk", "{% set foo = 'foo' %}{% from 'import.njk' import foo as bar with context %}{{ foo }}{{ bar }}")
+        .add("test.njk",
+             "{% set foo = 'foo' %}{% from 'import.njk' import foo as bar with context %}{{ foo }}{{ bar }}")
 
       env.renderTemplate("test.njk").value mustEqual "barbar"
     }
@@ -131,7 +134,8 @@ class ImportTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
       val env = environment
         .add("import.njk", "{% set foo = 'bar' %}")
-        .add("test.njk", "{% set foo = 'foo' %}{% from 'import.njk' import foo as bar without context %}{{ foo }}{{ bar }}")
+        .add("test.njk",
+             "{% set foo = 'foo' %}{% from 'import.njk' import foo as bar without context %}{{ foo }}{{ bar }}")
 
       env.renderTemplate("test.njk").value mustEqual "foobar"
     }

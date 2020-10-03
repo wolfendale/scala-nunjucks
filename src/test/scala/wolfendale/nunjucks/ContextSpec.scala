@@ -1,9 +1,11 @@
 package wolfendale.nunjucks
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.expression.runtime.Value
 
-class ContextSpec extends FreeSpec with MustMatchers {
+class ContextSpec extends AnyFreeSpec with Matchers {
 
   val environment = new ProvidedEnvironment(
     globals = Map("foo" -> Value.Str("global"))

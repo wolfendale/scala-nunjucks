@@ -1,9 +1,11 @@
 package wolfendale.nunjucks
 
-import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.OptionValues
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.expression.runtime.Value
 
-class ScopeSpec extends FreeSpec with MustMatchers with OptionValues {
+class ScopeSpec extends AnyFreeSpec with Matchers with OptionValues {
 
   "a scope" - {
 
@@ -14,7 +16,7 @@ class ScopeSpec extends FreeSpec with MustMatchers with OptionValues {
         val scope = Scope.empty
           .set("foo", Value.Str("bar"))
 
-        scope.get("baz") mustNot be (defined)
+        scope.get("baz") mustNot be(defined)
       }
 
       "must return a value from a scope if it exists" in {
@@ -52,13 +54,12 @@ class ScopeSpec extends FreeSpec with MustMatchers with OptionValues {
 
       "must set a value on the most specific scope" in {
 
-        val result = Scope.empty
-          .push
+        val result = Scope.empty.push
           .set("foo", Value.Str("bar"))
           .pop
           .get("foo")
 
-        result mustNot be (defined)
+        result mustNot be(defined)
       }
 
       "must modify a value on the correct scope when resolveUp is true" ignore {

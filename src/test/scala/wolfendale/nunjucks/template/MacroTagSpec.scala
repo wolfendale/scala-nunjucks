@@ -1,9 +1,11 @@
 package wolfendale.nunjucks.template
 
-import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.OptionValues
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 
-class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
+class MacroTagSpec extends AnyFreeSpec with Matchers with OptionValues {
 
   val environment = new ProvidedEnvironment()
 
@@ -30,7 +32,8 @@ class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
     "must allow optional args" in {
 
-      val result = environment.render("{% macro foo(bar) %}{% if bar %}{{ bar }}{% else %}Nope{% endif %}{% endmacro %}{{ foo() }}{{ foo('baz') }}")
+      val result = environment.render(
+        "{% macro foo(bar) %}{% if bar %}{{ bar }}{% else %}Nope{% endif %}{% endmacro %}{{ foo() }}{{ foo('baz') }}")
 
       result mustEqual "Nopebaz"
     }
@@ -44,21 +47,24 @@ class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
     "must allow for keyword args" in {
 
-      val result = environment.render("{% macro foo(bar, baz) %}{{ bar }}{{ baz }}{% endmacro %}{{ foo(baz=1, bar=2) }}")
+      val result =
+        environment.render("{% macro foo(bar, baz) %}{{ bar }}{{ baz }}{% endmacro %}{{ foo(baz=1, bar=2) }}")
 
       result mustEqual "21"
     }
 
     "must not make nested macros available to the global scope until the outer macro is executed" in {
 
-      val result = environment.render("{% macro foo() %}{% macro bar() %}in bar{% endmacro %}{% endmacro %}{{ bar === undefined }}{{ foo() }}{{ bar === undefined }}")
+      val result = environment.render(
+        "{% macro foo() %}{% macro bar() %}in bar{% endmacro %}{% endmacro %}{{ bar === undefined }}{{ foo() }}{{ bar === undefined }}")
 
       result mustEqual "truefalse"
     }
 
     "must make nested macros available to the global scope once the outer macro is executed" in {
 
-      val result = environment.render("{% macro foo() %}{% macro bar() %}in bar {% endmacro %}{{ bar() | upper }}{% endmacro %}{{ foo() }}{{ bar() }}")
+      val result = environment.render(
+        "{% macro foo() %}{% macro bar() %}in bar {% endmacro %}{{ bar() | upper }}{% endmacro %}{{ foo() }}{{ bar() }}")
 
       result mustEqual "IN BAR in bar "
     }
@@ -72,7 +78,8 @@ class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
     "must not see variables from caller scope" in {
 
-      val result = environment.render("{% set var = 2 %}{% macro foo() %}{{ var }}{% endmacro %}{% for i in [1] %}{% set var = 1 %}{{ foo() }}{% endfor %}")
+      val result = environment.render(
+        "{% set var = 2 %}{% macro foo() %}{{ var }}{% endmacro %}{% for i in [1] %}{% set var = 1 %}{{ foo() }}{% endfor %}")
 
       result mustEqual "2"
     }
@@ -86,7 +93,8 @@ class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
     "must be able to be called recursively" in {
 
-      val result = environment.render("{% macro fib(num) %}{% if num < 10 %}{{ num }}{{ fib(num + 1) }}{% endif %}{% endmacro %}{{ fib(1) }}")
+      val result = environment.render(
+        "{% macro fib(num) %}{% if num < 10 %}{{ num }}{{ fib(num + 1) }}{% endif %}{% endmacro %}{{ fib(1) }}")
 
       result mustEqual "123456789"
     }
@@ -125,14 +133,16 @@ class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
     "must call a macro" in {
 
-      val result = environment.render("{% macro foo() %}{{ caller() }}{% endmacro %}{% call foo() %}foobar{% endcall %}")
+      val result =
+        environment.render("{% macro foo() %}{{ caller() }}{% endmacro %}{% call foo() %}foobar{% endcall %}")
 
       result mustEqual "foobar"
     }
 
     "must call a macro with arguments" in {
 
-      val result = environment.render("{% macro foo(bar) %}{{ caller() }}{{ bar }}{% endmacro %}{% call foo('baz') %}foobar{% endcall %}")
+      val result = environment.render(
+        "{% macro foo(bar) %}{{ caller() }}{{ bar }}{% endmacro %}{% call foo('baz') %}foobar{% endcall %}")
 
       result mustEqual "foobarbaz"
     }
@@ -162,12 +172,14 @@ class MacroTagSpec extends FreeSpec with MustMatchers with OptionValues {
 
     "must be able to access scope from outside the call tag (global scope)" in {
 
-      environment.render("{% macro foo() %}{{ caller() }}{% endmacro %}{% set x = 1 %}{% call foo() %}{{ x }}{% endcall %}") mustEqual "1"
+      environment.render(
+        "{% macro foo() %}{{ caller() }}{% endmacro %}{% set x = 1 %}{% call foo() %}{{ x }}{% endcall %}") mustEqual "1"
     }
 
     "must be able to access scope from outside the call tag" in {
 
-      environment.render("{% macro foo() %}{{ caller() }}{% endmacro %}{% for i in [1] %}{% set x = 1 %}{% call foo() %}{{ x }}{% endcall %}{% endfor %}") mustEqual "1"
+      environment.render(
+        "{% macro foo() %}{{ caller() }}{% endmacro %}{% for i in [1] %}{% set x = 1 %}{% call foo() %}{{ x }}{% endcall %}{% endfor %}") mustEqual "1"
     }
 
     "must not leak caller" in {

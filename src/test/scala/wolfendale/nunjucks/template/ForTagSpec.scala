@@ -1,10 +1,12 @@
 package wolfendale.nunjucks.template
 
-import org.scalatest.{FreeSpec, MustMatchers}
+import org.scalatest.freespec.AnyFreeSpec
+
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 import wolfendale.nunjucks.expression.runtime.Value
 
-class ForTagSpec extends FreeSpec with MustMatchers {
+class ForTagSpec extends AnyFreeSpec with Matchers {
 
   val environment = new ProvidedEnvironment()
 
@@ -119,11 +121,14 @@ class ForTagSpec extends FreeSpec with MustMatchers {
 
     "must scope variables correctly" in {
 
-      val result = environment.render("""{% set foo = 2 %}{% for i in [1] %}{% set foo=1 %}{% endfor %}{{ foo }}
+      val result = environment.render(
+        """{% set foo = 2 %}{% for i in [1] %}{% set foo=1 %}{% endfor %}{{ foo }}
                                         |{% for i in [1] %}{% set x=1 %}{{ x }}{% endfor %}{{ x }}
-                                        |{% set x=3 %}{{ x }}""".stripMargin, Value.Obj(
-        "x" -> Value.Number(2)
-      ))
+                                        |{% set x=3 %}{{ x }}""".stripMargin,
+        Value.Obj(
+          "x" -> Value.Number(2)
+        )
+      )
 
       result mustEqual
         """1

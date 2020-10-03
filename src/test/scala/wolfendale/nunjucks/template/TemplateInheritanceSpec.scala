@@ -1,10 +1,12 @@
 package wolfendale.nunjucks.template
 
-import org.scalatest.{FreeSpec, MustMatchers, OptionValues}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.OptionValues
+import org.scalatest.matchers.must.Matchers
 import wolfendale.nunjucks.ProvidedEnvironment
 import wolfendale.nunjucks.expression.runtime.Value
 
-class TemplateInheritanceSpec extends FreeSpec with MustMatchers with OptionValues {
+class TemplateInheritanceSpec extends AnyFreeSpec with Matchers with OptionValues {
 
   val environment = new ProvidedEnvironment()
 
@@ -77,7 +79,8 @@ class TemplateInheritanceSpec extends FreeSpec with MustMatchers with OptionValu
     "must allow macros defined in blocks to be overridden by child blocks" in {
 
       val env = environment
-        .add("parent.njk", "{% block a %}{% macro foo() %}foobar{% endmacro %}{% endblock %}{% block b %}{{ foo() }}{% endblock %}")
+        .add("parent.njk",
+             "{% block a %}{% macro foo() %}foobar{% endmacro %}{% endblock %}{% block b %}{{ foo() }}{% endblock %}")
         .add("index.njk", "{% extends 'parent.njk' %}{% block a %}{% macro foo() %}barfoo{% endmacro %}{% endblock %}")
 
       env.renderTemplate("index.njk").value mustEqual "barfoo"
@@ -107,7 +110,8 @@ class TemplateInheritanceSpec extends FreeSpec with MustMatchers with OptionValu
 
     "must allow macros to be shared between blocks" in {
 
-      environment.render("{% block a %}{% macro foo() %}foobar{% endmacro %}{% endblock %}{% block b %}{{ foo() }}{% endblock %}") mustEqual "foobar"
+      environment.render(
+        "{% block a %}{% macro foo() %}foobar{% endmacro %}{% endblock %}{% block b %}{{ foo() }}{% endblock %}") mustEqual "foobar"
     }
   }
 }
